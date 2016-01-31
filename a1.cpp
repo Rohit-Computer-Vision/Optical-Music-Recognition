@@ -113,6 +113,18 @@ void write_detection_image(const string &filename,
 			output_planes[1], output_planes[2]);
 }
 
+int reflect(int pixel, int bound) { //need to consider filter of length more than 3
+	//cout<<"reflect ("<<pixel<<","<<bound<<")";
+	if(pixel < 0)
+		pixel = -pixel-1;
+	else
+		if(pixel > bound-1)
+			pixel = pixel-1;
+	//cout<<"return ("<<pixel<<","<<bound<<")\n\n";
+	return pixel;
+}
+	
+
 // The rest of these functions are incomplete. These are just suggestions to 
 // get you started -- feel free to add extra functions, change function
 // parameters, etc.
@@ -134,10 +146,15 @@ SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &fil
 	SDoublePlane output(input.rows(), input.cols());
 
 	// Convolution code here
+
+	//filling pixels before boundaries
+	
 	
 	double sum = 0.0;
-	for(int i=1; i<input.rows()-1; i++) {
-		for(int j=1; j<input.cols()-1; j++) {
+	int r = input.rows();
+	int c = input.cols();
+	for(int i=1; i<r-1; i++) {
+		for(int j=1; j<c-1; j++) {
 			sum = 0;
 			for(int m = -1; m<2; m++) {
 				for(int n = -1; n<2; n++) {
@@ -147,6 +164,45 @@ SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &fil
 			output[i][j] = sum;
 		}
 		
+	}
+
+	//boundaries
+
+	//top - input[0][j], bottom - input[input.rows()-1][j]
+	for(int j=0; j<c; j++) {
+		sum = 0;
+		for(int m = -1; m<2; m++) {
+			for(int n = -1; n<2; n++) {
+				//cout<<"Top: send ("<<0-m<<","<<r<<") and ("<<j-n<<","<<c<<")\n";
+				sum = sum + filter[m+1][n+1] * input[reflect(0-m,r)][reflect(j-n,c)];
+			}
+			output[0][j] = sum;
+		}
+		sum = 0;
+		for(int m = -1; m<2; m++) {
+			for(int n = -1; n<2; n++) {
+				//cout<<"Bottom: send ("<<0-m<<","<<r<<") and ("<<j-n<<","<<c<<")\n";
+				sum = sum + filter[m+1][n+1] * input[reflect(r-1-m,r)][reflect(j-n,c)];
+			}
+			output[r-1][j] = sum;
+		}
+	}
+	//left - input[i][0], right - input[i][input.cols()-1]
+	for(int i=0	; i<r; i++) {
+		sum = 0;
+		for(int m = -1; m<2; m++) {
+			for(int n = -1; n<2; n++) {
+				sum = sum + filter[m+1][n+1] * input[reflect(i-m,r)][reflect(0-n,c)];
+			}
+			output[i][0] = sum;
+		}
+		sum = 0;
+		for(int m = -1; m<2; m++) {
+			for(int n = -1; n<2; n++) {
+				sum = sum + filter[m+1][n+1] * input[reflect(i-m,r)][reflect(c-1-n,c)];
+			}
+			output[i][c-1] = sum;
+		}
 	}
 
 	return output;
