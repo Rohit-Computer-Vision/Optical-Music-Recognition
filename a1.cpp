@@ -131,8 +131,12 @@ int reflect(int pixel, int bound) { //need to consider filter of length more tha
 
 // Convolve an image with a separable convolution kernel
 //
+//SDoublePlane convolve_separable(const SDoublePlane &input,
+ //                               const SDoublePlane &row_filter, const SDoublePlane &col_filter) 
+ 
 SDoublePlane convolve_separable(const SDoublePlane &input,
-                                const SDoublePlane &row_filter, const SDoublePlane &col_filter) {
+                                const SDoublePlane &row_filter) 
+  {
     SDoublePlane output(input.rows(), input.cols());
 
 
@@ -144,12 +148,12 @@ SDoublePlane convolve_separable(const SDoublePlane &input,
 
     //first filter
     int **h1 = new int *[rowHalf];
-    for (int i = 0; i < rowCount; ++i)
+    for (int i = 0; i < rowHalf; ++i)
         h1[i] = new int[cols];
 
     //second filter
-    int **h2 = new int *[rows - rowHalf][cols];
-    for (int i = 0; i < rowCount; ++i)
+    int **h2 = new int *[rows - rowHalf];
+    for (int i = 0; i < rowHalf; ++i)
         h2[i] = new int[cols];
 
     for (int i = 0; i < input.rows(); i++) {
@@ -170,7 +174,7 @@ SDoublePlane convolve_separable(const SDoublePlane &input,
             sum = 0;
             for (int m = -1; m < 2; m++) {
                 for (int n = -1; n < 2; n++) {
-                    sum = sum + h2[m + 1][+!n] * input[i - m][j - n];
+                    sum = sum + h2[m + 1][+!n] * output[i - m][j - n];
                 }
             }
             output[i][j] = sum;
@@ -287,7 +291,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
             mean_filter[i][j] = 1 / 9.0;
-    SDoublePlane output_image = convolve_general(input_image, mean_filter);
+//    SDoublePlane output_image = convolve_general(input_image, mean_filter);
+		 SDoublePlane output_image = convolve_separable(input_image, mean_filter);
 
     // randomly generate some detected symbols -- you'll want to replace this
     //  with your symbol detection code obviously!
