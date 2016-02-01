@@ -161,7 +161,11 @@ SDoublePlane convolve_separable(const SDoublePlane &input,
             sum = 0;
             for (int m = -1; m < 2; m++) {
                 for (int n = -1; n < 2; n++) {
-                    sum = sum + h1[m + 1][n + 1] * input[i - m][j - n];
+					if (i-m >= 0 && j-n >= 0 && i-m < input.rows() && j-n < input.cols()){
+//						cout << "i:" << i << "  j:" << j << "  m:" << m << "  n:" << n << "  rows:" << input.rows() << "  cols:" << input.cols() << "\n";
+//						continue;
+						sum = sum + h1[m + 1][n + 1] * input[i - m][j - n];
+					}						
                 }
             }
             output[i][j] = sum;
@@ -174,7 +178,12 @@ SDoublePlane convolve_separable(const SDoublePlane &input,
             sum = 0;
             for (int m = -1; m < 2; m++) {
                 for (int n = -1; n < 2; n++) {
-                    sum = sum + h2[m + 1][+!n] * output[i - m][j - n];
+					if (i-m >= 0 && j-n >= 0 && i-m < input.rows() && j-n < input.cols()){
+//						cout << "i:" << i << "  j:" << j << "  m:" << m << "  n:" << n << "\n";
+//						continue;
+						sum = sum + h2[m + 1][+!n] * output[i - m][j - n];
+					}
+					
                 }
             }
             output[i][j] = sum;
