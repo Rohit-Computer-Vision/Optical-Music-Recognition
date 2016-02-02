@@ -74,7 +74,7 @@ void write_detection_txt(const string &filename,
     for (int i = 0; i < symbols.size(); i++) {
         const DetectedSymbol &s = symbols[i];
         ofs << s.row << " " << s.col << " " << s.width << " " << s.height
-        << " ";
+																																														<< " ";
         if (s.type == NOTEHEAD)
             ofs << "filled_note " << s.pitch;
         else if (s.type == EIGHTHREST)
@@ -131,67 +131,43 @@ int reflect(int pixel, int bound) { //need to consider filter of length more tha
 
 // Convolve an image with a separable convolution kernel
 //
-//SDoublePlane convolve_separable(const SDoublePlane &input,
- //                               const SDoublePlane &row_filter, const SDoublePlane &col_filter) 
- 
 SDoublePlane convolve_separable(const SDoublePlane &input,
-                                const SDoublePlane &row_filter) 
+                               const SDoublePlane &row_filter, const SDoublePlane &col_filter)  
   {
     SDoublePlane output(input.rows(), input.cols());
 
+	int k = row_filter.cols();
+	int sr = k/2;
+	int rows = row_filter.rows();
+	double sum =0.0;
+    for(int i =sr;i<input.rows() -sr;++i)
+		for(int j = sr;j<input.cols() -sr; ++j){
+			sum = 0.0;			
+                for (int n = 0; n < row_filter.cols(); n++) {
+					sum = sum +row_filter[rows-1][n] * input[i- (rows-1)][j-n+1];
+				}
 
-    //splitting the matrix
-    int rows = input.rows();
-    int cols = input.cols();
-    int rowHalf = rows / 2;
-    double sum = 0;
+			output[i][j]=sum;
+		}
 
-    //first filter
-    int **h1 = new int *[rowHalf];
-    for (int i = 0; i < rowHalf; ++i)
-        h1[i] = new int[cols];
+	k = col_filter.rows();
+	int ic = k/2;
+	int cols = col_filter.cols();
+	for(int i = ic;i<input.rows() - ic; ++i)
+		for(int j = ic;j<input.cols() -ic;++j){
+			sum=0.0;
+			for (int m = 0; m < col_filter.rows(); m++) {
 
-    //second filter
-    int **h2 = new int *[rows - rowHalf];
-    for (int i = 0; i < rowHalf; ++i)
-        h2[i] = new int[cols];
+				 	sum = sum + col_filter[m][cols-1] * output[i-m+1][j - (cols-1)]; 
 
-    for (int i = 0; i < input.rows(); i++) {
-        for (int j = 0; j < input.cols(); j++) {
-            sum = 0;
-            for (int m = -1; m < 2; m++) {
-                for (int n = -1; n < 2; n++) {
-					if (i-m >= 0 && j-n >= 0 && i-m < input.rows() && j-n < input.cols()){
-//						cout << "i:" << i << "  j:" << j << "  m:" << m << "  n:" << n << "  rows:" << input.rows() << "  cols:" << input.cols() << "\n";
-//						continue;
-						sum = sum + h1[m + 1][n + 1] * input[i - m][j - n];
-					}						
-                }
-            }
-            output[i][j] = sum;
-        }
+			 }
+			 output[i][j] = sum;
+		} 
 
-    }
+		return output;
 
-    for (int i = 0; i < input.rows(); i++) {
-        for (int j = 0; j < input.cols(); j++) {
-            sum = 0;
-            for (int m = -1; m < 2; m++) {
-                for (int n = -1; n < 2; n++) {
-					if (i-m >= 0 && j-n >= 0 && i-m < input.rows() && j-n < input.cols()){
-//						cout << "i:" << i << "  j:" << j << "  m:" << m << "  n:" << n << "\n";
-//						continue;
-						sum = sum + h2[m + 1][+!n] * output[i - m][j - n];
-					}
-					
-                }
-            }
-            output[i][j] = sum;
-        }
-    }
+  }
 
-    return output;
-}
 
 // Convolve an image with a general convolution kernel
 
@@ -219,7 +195,7 @@ SDoublePlane convolve_general(const SDoublePlane &input, const SDoublePlane &fil
 
     }
 
-    //boundaries
+                     //boundaries
 
     //top - input[0][j], bottom - input[input.rows()-1][j]
     for (int j = 0; j < c; j++) {
@@ -300,13 +276,26 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
             mean_filter[i][j] = 1 / 9.0;
-//    SDoublePlane output_image = convolve_general(input_image, mean_filter);
-		 SDoublePlane output_image = convolve_separable(input_image, mean_filter);
+  // SDoublePlane output_image = convolve_general(input_image, mean_filter);
+
+	SDoublePlane row_filter(1,3);
+	SDoublePlane col_filter(3,1);
+
+	//1 row and three columns
+	for (int i = 0; i < 1; i++)
+        for (int j = 0; j < 3; j++)
+            row_filter[i][j] = 1 / 3.0;
+
+	for(int i =0; i<3;i++)
+		for (int j=0;j<1;j++)
+			col_filter[i][j]= 1/3.0;
+
+	SDoublePlane output_image = convolve_separable(input_image, row_filter, col_filter);
 
     // randomly generate some detected symbols -- you'll want to replace this
     //  with your symbol detection code obviously!
     vector <DetectedSymbol> symbols;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1; i++) { 
         DetectedSymbol s;
         s.row = rand() % input_image.rows();
         s.col = rand() % input_image.cols();
@@ -322,3 +311,4 @@ int main(int argc, char *argv[]) {
     write_detection_image("detected.png", symbols, input_image);
     write_detection_image("detected2.png", symbols, output_image);
 }
+																																																																																																																																																																																																																																																																											
