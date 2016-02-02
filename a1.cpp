@@ -258,6 +258,65 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh = 0) {
     return output;
 }
 
+// Detect symbols in the given input_image
+vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane template_image ) {
+	
+	vector <DetectedSymbol> symbols;
+	
+	double sum = 0.0;
+    int r = input_image.rows();
+    int c = input_image.cols();
+	
+	/*
+	cout << "Input Image: \n";
+    for (int i = 0; i < r - 1; i++) {
+        for (int j = 0; j < c - 1; j++) {
+			cout << input_image[i][j] << "  " ;
+             sum = 0;
+            for (int m = -1; m < 2; m++) {
+                for (int n = -1; n < 2; n++) {
+                    sum = sum + filter[m + 1][n + 1] * input[i - m][j - n];
+                }
+            }
+            output[i][j] = sum;
+        }
+		cout << "\n";
+    }
+	*/
+ 	
+    for (int i = 0; i < 1; i++) {
+        DetectedSymbol s;
+        s.row = rand() % input_image.rows();
+        s.col = rand() % input_image.cols();
+        s.width = 20;
+        s.height = 20;
+        s.type = (Type) (rand() % 3);
+        s.confidence = rand();
+        s.pitch = (rand() % 7) + 'A';
+        symbols.push_back(s);
+    }
+	
+	 
+	return symbols;
+}
+
+// Print an image to a file
+void printImg2File(string filename, SDoublePlane img){
+	ofstream outFile;
+	outFile.open(filename.c_str());
+	
+	int r = img.rows();
+    int c = img.cols();
+    for (int i = 0; i < r ; i++) {
+        for (int j = 0; j < c ; j++) {
+			outFile << img[i][j] << ",";
+		}
+		outFile << "\n";
+	}			
+	outFile.close();	
+}
+
+
 //
 // This main file just outputs a few test images. You'll want to change it to do 
 //  something more interesting!
@@ -269,6 +328,11 @@ int main(int argc, char *argv[]) {
     }
 
     string input_filename(argv[1]);
+	
+	string TEMPLATE_NOTEHEAD = "template1.png";
+	string TEMPLATE_QUARTERREST = "template2.png";
+	string TEMPLATE_EIGHTHREST = "template3.png";
+
     SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
 
     // test step 2 by applying mean filters to the input image
@@ -290,8 +354,24 @@ int main(int argc, char *argv[]) {
 		for (int j=0;j<1;j++)
 			col_filter[i][j]= 1/3.0;
 
-	SDoublePlane output_image = convolve_separable(input_image, row_filter, col_filter);
+		
+		// Convolve General 2D Kernel	
+	// SDoublePlane output_image = convolve_general(input_image, mean_filter); // Uncomment Later
+		 
+	// Convolve Separable Kernel			 
+	 SDoublePlane output_image = convolve_separable(input_image, row_filter, col_filter); // Uncomment Later
 
+	// Read NOTEHEAD - Template 1
+	SDoublePlane template_img_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
+	
+	vector <DetectedSymbol> symbols = detectSymbols(input_image, template_img_notehead);
+	
+	// SDoublePlane template_img_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
+	// SDoublePlane template_img_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
+	
+	
+
+	/*
     // randomly generate some detected symbols -- you'll want to replace this
     //  with your symbol detection code obviously!
     vector <DetectedSymbol> symbols;
@@ -305,10 +385,12 @@ int main(int argc, char *argv[]) {
         s.confidence = rand();
         s.pitch = (rand() % 7) + 'A';
         symbols.push_back(s);
-    }
+    } */
 
     write_detection_txt("detected.txt", symbols);
     write_detection_image("detected.png", symbols, input_image);
     write_detection_image("detected2.png", symbols, output_image);
+	
+	printImg2File("img2fileOutput.txt", template_img_notehead );
 }
 																																																																																																																																																																																																																																																																											
