@@ -260,13 +260,13 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh = 0) {
 
 // Detect symbols in the given input_image
 vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane template_image ) {
-	
+
 	vector <DetectedSymbol> symbols;
-	
+
 	double sum = 0.0;
     int r = input_image.rows();
     int c = input_image.cols();
-	
+
 	/*
 	cout << "Input Image: \n";
     for (int i = 0; i < r - 1; i++) {
@@ -283,7 +283,7 @@ vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane tem
 		cout << "\n";
     }
 	*/
- 	
+
     for (int i = 0; i < 1; i++) {
         DetectedSymbol s;
         s.row = rand() % input_image.rows();
@@ -295,8 +295,8 @@ vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane tem
         s.pitch = (rand() % 7) + 'A';
         symbols.push_back(s);
     }
-	
-	 
+
+
 	return symbols;
 }
 
@@ -304,7 +304,7 @@ vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane tem
 void printImg2File(string filename, SDoublePlane img){
 	ofstream outFile;
 	outFile.open(filename.c_str());
-	
+
 	int r = img.rows();
     int c = img.cols();
     for (int i = 0; i < r ; i++) {
@@ -314,6 +314,50 @@ void printImg2File(string filename, SDoublePlane img){
 		outFile << "\n";
 	}			
 	outFile.close();	
+}
+
+//Converts a grey scale image to binary image
+SDoublePlane convert_binary(SDoublePlane &input){
+
+	int rows = input.rows();
+	int cols = input.cols();
+	SDoublePlane output(rows,cols);
+
+	double threshold = 200.0;
+	for(int i= 0;i<rows;++i)
+		for(int j=0;j<cols;++j){
+			if(input[i][j] >= threshold)
+				output[i][j] = 1;
+			else
+				output[i][j] =0;
+		}
+	return output;
+}
+
+
+SDoublePlane find_hamming_distance(SDoublePlane &img_input, SDoublePlane &img_template){
+	
+	int input_rows = img_input.rows();
+	int input_cols = img_input.cols();
+	int template_rows = img_template.rows();
+	int template_cols = img_template.cols();
+		
+	double sum = 0.0;
+	SDoublePlane output(input_rows, input_cols);
+	for(int i =0;i<input_rows - template_rows ; ++i){
+		for(int j =0;j<input_cols - template_cols; ++j){
+			sum=0.0;
+			for(int k =0;k<template_rows;++k){
+				for(int l=0;l<template_cols;++l){
+					sum = sum + (img_input[i+k][j+l] * img_template[k][l] + (1 - img_input[i+k][j+l])*(1 - img_template[k][l]));	
+				}
+			}
+			output[i][j] = sum;
+		}
+	}
+	printImg2File("input_img_file_Output.txt", img_input);
+	printImg2File("img2fileOutput.txt", output);
+	return output;	
 }
 
 
@@ -328,12 +372,13 @@ int main(int argc, char *argv[]) {
     }
 
     string input_filename(argv[1]);
-	
+
 	string TEMPLATE_NOTEHEAD = "template1.png";
 	string TEMPLATE_QUARTERREST = "template2.png";
 	string TEMPLATE_EIGHTHREST = "template3.png";
 
     SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
+
 
     // test step 2 by applying mean filters to the input image
     SDoublePlane mean_filter(3, 3);
@@ -354,22 +399,40 @@ int main(int argc, char *argv[]) {
 		for (int j=0;j<1;j++)
 			col_filter[i][j]= 1/3.0;
 
-		
+
 		// Convolve General 2D Kernel	
 	// SDoublePlane output_image = convolve_general(input_image, mean_filter); // Uncomment Later
-		 
+
 	// Convolve Separable Kernel			 
 	 SDoublePlane output_image = convolve_separable(input_image, row_filter, col_filter); // Uncomment Later
 
 	// Read NOTEHEAD - Template 1
-	SDoublePlane template_img_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
+	SDoublePlane template_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
+	SDoublePlane template_notehead_grey_scale = convert_binary(template_notehead);
+
+	// Read QUARTERREST
+	SDoublePlane template_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
+	SDoublePlane template_quarterrest_grey_scale = convert_binary(template_quarterrest);
 	
-	vector <DetectedSymbol> symbols = detectSymbols(input_image, template_img_notehead);
+ 
+ // Read EIGHTHREST
+	SDoublePlane template_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
+	SDoublePlane template_eighthrest_grey_scale = convert_binary(template_eighthrest);
 	
-	// SDoublePlane template_img_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
-	// SDoublePlane template_img_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
+//	vector <DetectedSymbol> symbols = detectSymbols(input_image, template_img_notehead);
+
+
+
+
+	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
+	SDoublePlane convoluted_template = convolve_separable(template_notehead, row_filter, col_filter);
 	
+	SDoublePlane binary_image = convert_binary(convoluted_image);
+	SDoublePlane binary_template = convert_binary(convoluted_template);
 	
+
+	find_hamming_distance(binary_image, binary_template);
+
 
 	/*
     // randomly generate some detected symbols -- you'll want to replace this
@@ -387,10 +450,10 @@ int main(int argc, char *argv[]) {
         symbols.push_back(s);
     } */
 
-    write_detection_txt("detected.txt", symbols);
-    write_detection_image("detected.png", symbols, input_image);
-    write_detection_image("detected2.png", symbols, output_image);
-	
-	printImg2File("img2fileOutput.txt", template_img_notehead );
+    // write_detection_txt("detected.txt", symbols);
+    // write_detection_image("detected.png", symbols, input_image);
+    // write_detection_image("detected2.png", symbols, output_image);
+
+	//printImg2File("img2fileOutput.txt", template_img_notehead );
 }
-																																																																																																																																																																																																																																																																											
+																																																																																																																																																																																																																																																																																																																											
