@@ -66,6 +66,12 @@ public:
 	double confidence;
 };
 
+class HammingDistances{
+public: 
+	SDoublePlane hamming_matrix;
+	double max_hamming_distance;
+};
+
 // Function that outputs the ascii detection output file
 void write_detection_txt(const string &filename,
 		const vector<struct DetectedSymbol> &symbols) {
@@ -343,6 +349,76 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh = 0) {
 
 // Detect symbols in the given input_image
 
+
+// Print an image to a file
+void printImg2File(string filename, SDoublePlane img) {
+	ofstream outFile;
+	outFile.open(filename.c_str());
+
+	int r = img.rows();
+	int c = img.cols();
+	for (int i = 0; i < r; i++) {
+		for (int j = 0; j < c; j++) {
+			outFile << img[i][j] << ",";
+		}
+		outFile << "\n";
+	}
+	outFile.close();
+}
+
+//Converts a grey scale image to binary image
+SDoublePlane convert_binary(SDoublePlane &input){
+
+	int rows = input.rows();
+	int cols = input.cols();
+	SDoublePlane output(rows,cols);
+
+	double threshold = 100.0;
+	for(int i= 0;i<rows;++i)
+		for(int j=0;j<cols;++j){
+			if(input[i][j] >= threshold)
+				output[i][j] = 1;
+			else
+				output[i][j] =0;
+		}
+	return output;
+}
+
+
+HammingDistances find_hamming_distance(SDoublePlane &img_input, SDoublePlane &img_template){
+	
+	int input_rows = img_input.rows();
+	int input_cols = img_input.cols();
+	int template_rows = img_template.rows();
+	int template_cols = img_template.cols();
+	HammingDistances hm;
+		
+	double sum = 0.0;
+	double max_hamming = 0.0;
+	SDoublePlane output(input_rows, input_cols);
+	for(int i =0;i<input_rows - template_rows ; ++i){
+		for(int j =0;j<input_cols - template_cols; ++j){
+			sum=0.0;
+			for(int k =0;k<template_rows;++k){
+				for(int l=0;l<template_cols;++l){
+					sum = sum + (img_input[i+k][j+l] * img_template[k][l] + (1 - img_input[i+k][j+l])*(1 - img_template[k][l]));	
+				}
+			}
+			output[i][j] = sum;
+			if(sum>max_hamming)
+				max_hamming = sum;
+		}
+	}
+	printImg2File("input_img_file_Output.txt", img_input);
+	printImg2File("img2fileOutput.txt", output);
+	hm.hamming_matrix = output;
+	hm.max_hamming_distance= max_hamming;
+	return hm;	
+}
+
+
+
+
 vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane template_image ) {
 
 	vector <DetectedSymbol> symbols;
@@ -383,65 +459,43 @@ vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane tem
 	return symbols;
 }
 
-// Print an image to a file
-void printImg2File(string filename, SDoublePlane img) {
-	ofstream outFile;
-	outFile.open(filename.c_str());
 
-	int r = img.rows();
-	int c = img.cols();
-	for (int i = 0; i < r; i++) {
-		for (int j = 0; j < c; j++) {
-			outFile << img[i][j] << ",";
-		}
-		outFile << "\n";
-	}
-	outFile.close();
-}
-
-//Converts a grey scale image to binary image
-SDoublePlane convert_binary(SDoublePlane &input){
-
-	int rows = input.rows();
-	int cols = input.cols();
-	SDoublePlane output(rows,cols);
-
-	double threshold = 200.0;
-	for(int i= 0;i<rows;++i)
-		for(int j=0;j<cols;++j){
-			if(input[i][j] >= threshold)
-				output[i][j] = 1;
-			else
-				output[i][j] =0;
-		}
-	return output;
-}
-
-
-SDoublePlane find_hamming_distance(SDoublePlane &img_input, SDoublePlane &img_template){
+void find_symbols(HammingDistances hm, SDoublePlane &img_template, vector <DetectedSymbol> &symbols){
 	
-	int input_rows = img_input.rows();
-	int input_cols = img_input.cols();
 	int template_rows = img_template.rows();
 	int template_cols = img_template.cols();
-		
-	double sum = 0.0;
-	SDoublePlane output(input_rows, input_cols);
-	for(int i =0;i<input_rows - template_rows ; ++i){
-		for(int j =0;j<input_cols - template_cols; ++j){
-			sum=0.0;
-			for(int k =0;k<template_rows;++k){
-				for(int l=0;l<template_cols;++l){
-					sum = sum + (img_input[i+k][j+l] * img_template[k][l] + (1 - img_input[i+k][j+l])*(1 - img_template[k][l]));	
+	
+	double max_hamming_distance = hm.max_hamming_distance;
+	SDoublePlane matrix = hm.hamming_matrix;
+	
+	// Finding symbols
+	for(int i =0;i<matrix.rows();i++)
+		for(int j=0;j<matrix.cols();j++){
+			double value = matrix [i][j];
+			if( value >= 0.9 * max_hamming_distance) {
+				DetectedSymbol s;
+				s.row = i;
+				s.col = j;
+				s.width = template_cols;
+				s.height = template_rows;
+				s.type = (Type)(0);
+				s.confidence = 0;
+				s.pitch = ' ';
+				symbols.push_back(s);
+				// Marking the pixels of the template so that they are not detected again
+				for (int x=i; x < i+template_cols; x++){
+					for (int y=j; y < j+template_rows; y++){
+						matrix[x][y] = -1;
+					}	
 				}
+				
 			}
-			output[i][j] = sum;
+
 		}
-	}
-	printImg2File("input_img_file_Output.txt", img_input);
-	printImg2File("img2fileOutput.txt", output);
-	return output;	
+	
 }
+
+
 
 //
 // This main file just outputs a few test images. You'll want to change it to do
@@ -518,17 +572,22 @@ int main(int argc, char *argv[]) {
 	SDoublePlane template_sobel_blur = convolve_separable(template_sobel, row_filter, col_filter);
 //******************** Q5 Sobel + separable kernel ***************************
 
+	HammingDistances hm = find_hamming_distance(binary_image, binary_template);
+	
+	vector <DetectedSymbol> symbols;
+	
+	find_symbols(hm, binary_template, symbols);
+
+	//write_detection_txt("detected.txt", symbols);
+    write_detection_image("detected.png", symbols, input_image);
 
 	/*
 
-    // write_detection_txt("detected.txt", symbols);
-    // write_detection_image("detected.png", symbols, input_image);
     // write_detection_image("detected2.png", symbols, output_image);
 	write_detection_image("detected2_image_sobel_blur.png", symbols, image_sobel_blur);
 	write_detection_image("detected2_template_sobel_blur.png", symbols, template_sobel_blur);
 
 	*/
 	
-	find_hamming_distance(binary_image, binary_template);
 	//printImg2File("img2fileOutput.txt", template_img_notehead);
 }
