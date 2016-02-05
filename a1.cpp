@@ -460,31 +460,37 @@ vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane tem
 }
 
 
-void find_symbols(HammingDistances hm, SDoublePlane &img_template, vector <DetectedSymbol> &symbols){
+void find_symbols(HammingDistances &hm, SDoublePlane img_template, vector <DetectedSymbol> &symbols, Type symbol_type){
 	
 	int template_rows = img_template.rows();
 	int template_cols = img_template.cols();
 	
 	double max_hamming_distance = hm.max_hamming_distance;
 	SDoublePlane matrix = hm.hamming_matrix;
+	double confidence_threshold;
+	if (symbol_type == NOTEHEAD)
+		confidence_threshold = 0.9;
+	else
+		confidence_threshold = 0.95;
+	
 	
 	// Finding symbols
 	for(int i =0;i<matrix.rows();i++)
 		for(int j=0;j<matrix.cols();j++){
 			double value = matrix [i][j];
-			if( value >= 0.9 * max_hamming_distance) {
+			if( value >= confidence_threshold * max_hamming_distance) {
 				DetectedSymbol s;
 				s.row = i;
 				s.col = j;
 				s.width = template_cols;
 				s.height = template_rows;
-				s.type = (Type)(0);
-				s.confidence = 0;
+				s.type = symbol_type;
+				s.confidence = value;
 				s.pitch = ' ';
 				symbols.push_back(s);
 				// Marking the pixels of the template so that they are not detected again
-				for (int x=i; x < i+template_cols; x++){
-					for (int y=j; y < j+template_rows; y++){
+				for (int x=i; x < i+s.height; x++){
+					for (int y=j; y < j+s.width; y++){
 						matrix[x][y] = -1;
 					}	
 				}
@@ -513,9 +519,6 @@ int main(int argc, char *argv[]) {
 	string TEMPLATE_QUARTERREST = "template2.png";
 	string TEMPLATE_EIGHTHREST = "template3.png";
 
-	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
-	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
-
 	// test step 2 by applying mean filters to the input image
 	SDoublePlane mean_filter(3, 3);
 	for (int i = 0; i < 3; i++)
@@ -535,52 +538,60 @@ int main(int argc, char *argv[]) {
 			col_filter[i][j] = 1 / 3.0;
 
 
+		
+	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
+	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
+	
 	// Convolve General 2D Kernel	
 	// SDoublePlane output_image = convolve_general(input_image, mean_filter); // Uncomment Later
 
 	// Convolve Separable Kernel			 
-	 SDoublePlane output_image = convolve_separable(input_image, row_filter, col_filter); // Uncomment Later
+	// SDoublePlane output_image = convolve_separable(input_image, row_filter, col_filter); // Uncomment Later
 
+	
 	// Read NOTEHEAD - Template 1
 	SDoublePlane template_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
-	SDoublePlane template_notehead_grey_scale = convert_binary(template_notehead);
-
+	
 	// Read QUARTERREST
 	SDoublePlane template_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
-	SDoublePlane template_quarterrest_grey_scale = convert_binary(template_quarterrest);
 	
- 
 	// Read EIGHTHREST
 	SDoublePlane template_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
-	SDoublePlane template_eighthrest_grey_scale = convert_binary(template_eighthrest);
 	
-	//	vector <DetectedSymbol> symbols = detectSymbols(input_image, template_img_notehead);
-
-
+	// Convolve Images
 	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
-	SDoublePlane convoluted_template = convolve_separable(template_notehead, row_filter, col_filter);
+	SDoublePlane convoluted_notehead_template = convolve_separable(template_notehead, row_filter, col_filter);
+	SDoublePlane convoluted_quarterrest_template = convolve_separable(template_quarterrest, row_filter, col_filter);
+	SDoublePlane convoluted_eighthrest_template = convolve_separable(template_eighthrest, row_filter, col_filter);
 	
+	// Convert to Binary
 	SDoublePlane binary_image = convert_binary(convoluted_image);
-	SDoublePlane binary_template = convert_binary(convoluted_template);
+	SDoublePlane binary_notehead_template = convert_binary(convoluted_notehead_template);
+	SDoublePlane binary_quarterrest_template = convert_binary(convoluted_quarterrest_template);
+	SDoublePlane binary_eighthrest_template = convert_binary(convoluted_eighthrest_template);
 	
+	HammingDistances hm_notehead = find_hamming_distance(binary_image, binary_notehead_template);
+	HammingDistances hm_quarterrest = find_hamming_distance(binary_image, binary_quarterrest_template);
+	HammingDistances hm_eighthrest = find_hamming_distance(binary_image, binary_eighthrest_template);
+	
+	vector <DetectedSymbol> symbols;
+	
+	find_symbols(hm_notehead, binary_notehead_template, symbols, NOTEHEAD);
+	find_symbols(hm_quarterrest, binary_quarterrest_template, symbols, QUARTERREST);
+	find_symbols(hm_eighthrest, binary_eighthrest_template, symbols, EIGHTHREST);
 
-//******************** Q5 Sobel + separable kernel ***************************
+	//write_detection_txt("detected.txt", symbols);
+    write_detection_image("detected.png", symbols, input_image);
+
+	
+	//******************** Q5 Sobel + separable kernel ***************************
 	//Applying Sobel followed by a separable blur filter
 	SDoublePlane image_sobel = sobel_gradient_filter(input_image, true);
 	SDoublePlane image_sobel_blur = convolve_separable(image_sobel, row_filter, col_filter);
 	SDoublePlane template_sobel = sobel_gradient_filter(template1, true);
 	SDoublePlane template_sobel_blur = convolve_separable(template_sobel, row_filter, col_filter);
-//******************** Q5 Sobel + separable kernel ***************************
-
-	HammingDistances hm = find_hamming_distance(binary_image, binary_template);
+	//******************** Q5 Sobel + separable kernel ***************************
 	
-	vector <DetectedSymbol> symbols;
-	
-	find_symbols(hm, binary_template, symbols);
-
-	//write_detection_txt("detected.txt", symbols);
-    write_detection_image("detected.png", symbols, input_image);
-
 	/*
 
     // write_detection_image("detected2.png", symbols, output_image);
