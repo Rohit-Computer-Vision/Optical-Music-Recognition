@@ -563,43 +563,32 @@ void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> myVector){
 	//int symbol_end_row = symbol_row + s.height;
 	int symbol_end_row = symbol_row + 7;
 
-	LineLocation dummySymbol;	
-	dummySymbol.row = myVector[myVector.size()-1].row + 40;	
-	myVector.push_back(dummySymbol);
-	
-	
 	for(int i=0; i<myVector.size(); i++){
 	
-		int rowDiff = abs(myVector[i].row - myVector [i+1].row);
+	
+		// if(rowDiff > 50){
+			// if((abs(symbol_row - myVector[i])) < (abs(symbol_row -myVector[i+1])))
+				// s.pitch = myVector[i].below_marker;
+			// else
+				// s.pitch = myVector[i+1].above_marker;
+				
+		// }
+			
 		
-		cout<<"difference \t" <<rowDiff<<"\n";
 		
-		if(rowDiff < 60)
-		{
 		
 		if((myVector[i].row < symbol_end_row) && (myVector[i].row>symbol_row )){
 			cout<<"setting symbol \t" <<myVector[i].line_marker<<"\n";
 			s.pitch = myVector[i].line_marker;
 		}
 		
+		
 		if(symbol_row>myVector[i].row && symbol_row<myVector[i+1].row)
 		{
 			s.pitch = myVector[i].below_marker;
 		}
-		}
-	else
-		{
-			if((abs(symbol_row - myVector[i].row)) < (abs(symbol_row -myVector[i+1].row)))
-			{		s.pitch = myVector[i].below_marker;
-			}else{
-				s.pitch = myVector[i+1].above_marker;
-			}
-		
-		}
-	myVector.pop_back();
-	
+	}
 
-}
 }
 
 
