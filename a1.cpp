@@ -66,6 +66,15 @@ public:
 	double confidence;
 };
 
+class LineLocation{
+public:
+		int row, col;
+		char above_marker;
+		char line_marker;
+		char below_marker;
+	
+};
+
 class HammingDistances{
 public: 
 	SDoublePlane hamming_matrix;
@@ -417,6 +426,94 @@ HammingDistances find_hamming_distance(SDoublePlane &img_input, SDoublePlane &im
 }
 
 
+void set_line_tags(LineLocation &lineLoc, int count){
+	
+	switch(count){
+		case 1:
+		lineLoc.above_marker = 'G';
+		lineLoc.line_marker = 'F';
+		lineLoc.below_marker = 'E';
+		break;
+		
+		case 2:
+		lineLoc.line_marker = 'D';
+		lineLoc.below_marker = 'C';
+		break;
+			
+		case 3:
+		lineLoc.line_marker = 'B';
+		lineLoc.below_marker = 'A';
+		break;
+		
+		case 4:
+		lineLoc.line_marker = 'G';
+		lineLoc.below_marker = 'F';
+		break;
+
+		case 5:
+		lineLoc.line_marker = 'E';
+		lineLoc.below_marker = 'D';
+		break;
+
+		case 6:
+		lineLoc.above_marker = 'B';
+		lineLoc.line_marker = 'A';
+		lineLoc.below_marker = 'G';
+		break;
+
+		case 7:
+		lineLoc.line_marker = 'F';
+		lineLoc.below_marker = 'E';
+		break;
+
+		case 8:
+		lineLoc.line_marker = 'D';
+		lineLoc.below_marker = 'C';
+		break;
+
+		case 9:
+		lineLoc.line_marker = 'B';
+		lineLoc.below_marker = 'A';
+		break;
+		
+		case 10:
+		lineLoc.line_marker = 'G';
+		lineLoc.below_marker = 'F';
+		break;
+		
+	}
+	//return lineLoc;
+}
+
+
+vector<LineLocation> find_line_location(SDoublePlane &input){
+	
+	int rows = input.rows();
+	int cols = input.cols();
+	vector<LineLocation> output;
+	double sum;
+	int lineCounter = 1;
+	int j;
+	for(int i=0;i<rows;i++)
+	{	sum =0;
+		for(j=cols - 45;j<cols -40;j++){
+			sum += input[i][j]; 
+		}
+		if(sum/5 < 130){
+			LineLocation lineLoc;
+			lineLoc.row = i;
+			lineLoc.col = j;
+			set_line_tags(lineLoc, lineCounter);
+			lineCounter++;
+			output.push_back(lineLoc);
+		}
+	
+	}
+	//cout << "Lines count: " << lineCounter << "\n";
+	return output;
+}
+
+
 
 
 vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane template_image ) {
@@ -460,16 +557,68 @@ vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane tem
 }
 
 
-void find_symbols(HammingDistances &hm, SDoublePlane img_template, vector <DetectedSymbol> &symbols, Type symbol_type){
+void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> myVector){
+	
+	int symbol_row = s.row;
+	//int symbol_end_row = symbol_row + s.height;
+	int symbol_end_row = symbol_row + 7;
+
+	LineLocation dummySymbol;	
+	dummySymbol.row = myVector[myVector.size()-1].row + 40;	
+	myVector.push_back(dummySymbol);
+	
+	
+	for(int i=0; i<myVector.size(); i++){
+	
+		int rowDiff = abs(myVector[i].row - myVector [i+1].row);
+		
+		cout<<"difference \t" <<rowDiff<<"\n";
+		
+		if(rowDiff < 60)
+		{
+		
+		if((myVector[i].row < symbol_end_row) && (myVector[i].row>symbol_row )){
+			cout<<"setting symbol \t" <<myVector[i].line_marker<<"\n";
+			s.pitch = myVector[i].line_marker;
+		}
+		
+		if(symbol_row>myVector[i].row && symbol_row<myVector[i+1].row)
+		{
+			s.pitch = myVector[i].below_marker;
+		}
+		}
+	else
+		{
+			if((abs(symbol_row - myVector[i].row)) < (abs(symbol_row -myVector[i+1].row)))
+			{		s.pitch = myVector[i].below_marker;
+			}else{
+				s.pitch = myVector[i+1].above_marker;
+			}
+		
+		}
+	myVector.pop_back();
+	
+
+}
+}
+
+
+void find_symbols(HammingDistances &hm, SDoublePlane &input, SDoublePlane img_template, vector <DetectedSymbol> &symbols, Type symbol_type){
 	
 	int template_rows = img_template.rows();
 	int template_cols = img_template.cols();
 	
 	double max_hamming_distance = hm.max_hamming_distance;
 	SDoublePlane matrix = hm.hamming_matrix;
+	vector<LineLocation> myVector;
 	double confidence_threshold;
-	if (symbol_type == NOTEHEAD)
+	if (symbol_type == NOTEHEAD){
 		confidence_threshold = 0.9;
+		myVector = find_line_location(input);
+		// for(int i =0;i<myVector.size();i++){
+			// cout<<"Line "<< i+1 << ":" << myVector[i].row<<"\n";
+		// }
+	}
 	else
 		confidence_threshold = 0.95;
 	
@@ -486,7 +635,13 @@ void find_symbols(HammingDistances &hm, SDoublePlane img_template, vector <Detec
 				s.height = template_rows;
 				s.type = symbol_type;
 				s.confidence = value;
+				
 				s.pitch = ' ';
+				if(symbol_type == NOTEHEAD)
+					set_symbol_marker(s, myVector);
+				else
+					s.pitch = ' ';
+				
 				symbols.push_back(s);
 				// Marking the pixels of the template so that they are not detected again
 				for (int x=i; x < i+s.height; x++){
@@ -498,8 +653,13 @@ void find_symbols(HammingDistances &hm, SDoublePlane img_template, vector <Detec
 			}
 
 		}
-	
 }
+
+
+
+
+
+
 
 
 
@@ -576,9 +736,13 @@ int main(int argc, char *argv[]) {
 	
 	vector <DetectedSymbol> symbols;
 	
-	find_symbols(hm_notehead, binary_notehead_template, symbols, NOTEHEAD);
-	find_symbols(hm_quarterrest, binary_quarterrest_template, symbols, QUARTERREST);
-	find_symbols(hm_eighthrest, binary_eighthrest_template, symbols, EIGHTHREST);
+	find_symbols(hm_notehead, input_image, binary_notehead_template, symbols, NOTEHEAD);
+//	find_symbols(hm_quarterrest, input_image, binary_quarterrest_template, symbols, QUARTERREST);
+//	find_symbols(hm_eighthrest, input_image, binary_eighthrest_template, symbols, EIGHTHREST);
+
+	// for(int i =0;i<symbols.size();i++){
+		// cout<<"Symbol "<< i << ":" << symbols[i].row<<"\n";
+	// }
 
 	//write_detection_txt("detected.txt", symbols);
     write_detection_image("detected.png", symbols, input_image);
@@ -601,4 +765,5 @@ int main(int argc, char *argv[]) {
 	*/
 	
 	//printImg2File("img2fileOutput.txt", template_img_notehead);
+	//printImg2File("img2fileOutput.txt", input_image);
 }
