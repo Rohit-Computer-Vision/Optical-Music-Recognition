@@ -72,7 +72,6 @@ public:
 		char above_marker;
 		char line_marker;
 		char below_marker;
-	
 };
 
 class HammingDistances{
@@ -482,7 +481,6 @@ void set_line_tags(LineLocation &lineLoc, int count){
 		break;
 		
 	}
-	//return lineLoc;
 }
 
 
@@ -490,10 +488,11 @@ vector<LineLocation> find_line_location(SDoublePlane &input){
 	
 	int rows = input.rows();
 	int cols = input.cols();
-	vector<LineLocation> output;
+	vector<LineLocation> allLinesLocVector;
 	double sum;
 	int lineCounter = 1;
 	int j;
+	
 	for(int i=0;i<rows;i++)
 	{	sum =0;
 		for(j=cols - 45;j<cols -40;j++){
@@ -505,88 +504,104 @@ vector<LineLocation> find_line_location(SDoublePlane &input){
 			lineLoc.col = j;
 			set_line_tags(lineLoc, lineCounter);
 			lineCounter++;
-			output.push_back(lineLoc);
+			allLinesLocVector.push_back(lineLoc);
 		}
 	
 	}
-	//cout << "Lines count: " << lineCounter << "\n";
-	return output;
+	return allLinesLocVector;
 }
 
 
 
-
-vector <DetectedSymbol> detectSymbols(SDoublePlane input_image, SDoublePlane template_image ) {
-
-	vector <DetectedSymbol> symbols;
-
-	double sum = 0.0;
-    int r = input_image.rows();
-    int c = input_image.cols();
-
-	/*
-	cout << "Input Image: \n";
-    for (int i = 0; i < r - 1; i++) {
-        for (int j = 0; j < c - 1; j++) {
-			cout << input_image[i][j] << "  " ;
-             sum = 0;
-            for (int m = -1; m < 2; m++) {
-                for (int n = -1; n < 2; n++) {
-                    sum = sum + filter[m + 1][n + 1] * input[i - m][j - n];
-                }
-            }
-            output[i][j] = sum;
-        }
-		cout << "\n";
-    }
-	*/
-
-    for (int i = 0; i < 1; i++) {
-        DetectedSymbol s;
-        s.row = rand() % input_image.rows();
-        s.col = rand() % input_image.cols();
-        s.width = 20;
-        s.height = 20;
-        s.type = (Type) (rand() % 3);
-        s.confidence = rand();
-        s.pitch = (rand() % 7) + 'A';
-        symbols.push_back(s);
-    }
-
-	return symbols;
-}
-
-
-void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> myVector){
+void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> allLinesLocVector){
 	
-	int symbol_row = s.row;
-	//int symbol_end_row = symbol_row + s.height;
-	int symbol_end_row = symbol_row + 7;
-
-	for(int i=0; i<myVector.size(); i++){
+	int symbol_start_row = s.row;
+	int symbol_end_row = symbol_start_row + 7;
+		
+	// Finding avg distance between staff lines
+	double avg_dist_staff_lines,tmpSum;
 	
+	for(int i=0; i<4; i++){
+		tmpSum = allLinesLocVector[i+1].row - allLinesLocVector[i].row;
+	}		
+	avg_dist_staff_lines = tmpSum/4 + 5 ;
 	
-		// if(rowDiff > 50){
-			// if((abs(symbol_row - myVector[i])) < (abs(symbol_row -myVector[i+1])))
-				// s.pitch = myVector[i].below_marker;
-			// else
-				// s.pitch = myVector[i+1].above_marker;
-				
-		// }
+	// Marking the pitch
+	for(int i=0; i<allLinesLocVector.size(); i++){
+		
+		// Boundary lines of both staves
+		
+		// Top line of High Pitch Staff
+		if (i==0){
+			if ( symbol_end_row < allLinesLocVector[i].row && symbol_start_row > allLinesLocVector[i].row - avg_dist_staff_lines){
+				s.pitch = 'G';
+				continue;
+				}
+		}
+		
+		// Bottom line of High Pitch Staff
+		else if (i==4 && symbol_end_row < allLinesLocVector[5].row){
+			if ( symbol_start_row >= allLinesLocVector[i].row && symbol_end_row <= allLinesLocVector[i].row + avg_dist_staff_lines  ){
+				s.pitch = 'D';
+				continue;							
+			}
 			
-		
-		
-		
-		if((myVector[i].row < symbol_end_row) && (myVector[i].row>symbol_row )){
-			cout<<"setting symbol \t" <<myVector[i].line_marker<<"\n";
-			s.pitch = myVector[i].line_marker;
+			else if ( symbol_start_row >= allLinesLocVector[i].row + avg_dist_staff_lines && symbol_end_row >= allLinesLocVector[i].row + s.height ){
+				s.pitch = 'B';
+				continue;
+			}
+			
+			else if ( symbol_start_row >= allLinesLocVector[i].row && symbol_end_row >= allLinesLocVector[i].row + avg_dist_staff_lines ){
+				s.pitch = 'C';
+				continue;
+			}
+
+		}
+
+		// Top line of Low Pitch Staff		
+		else if (i==5 && symbol_start_row > allLinesLocVector[4].row + 2*s.height && symbol_end_row < allLinesLocVector[i].row){
+			
+			if ( symbol_end_row < allLinesLocVector[i].row && symbol_start_row <= allLinesLocVector[i].row - avg_dist_staff_lines - 5 ){
+				s.pitch = 'C';
+				continue;
+			}
+			
+			else if ( symbol_end_row < allLinesLocVector[i].row && symbol_start_row > allLinesLocVector[i].row - avg_dist_staff_lines ){
+				s.pitch = 'B';
+				continue;
+			}
+						
 		}
 		
-		
-		if(symbol_row>myVector[i].row && symbol_row<myVector[i+1].row)
-		{
-			s.pitch = myVector[i].below_marker;
+		// Bottom line of Low Pitch Staff
+		else if (i==9 && symbol_start_row > allLinesLocVector[i].row){
+			if ( symbol_start_row > allLinesLocVector[i].row && symbol_end_row <= allLinesLocVector[i].row + avg_dist_staff_lines  ){
+				s.pitch = 'F';	
+				continue;
+			}			
+			else if ( symbol_start_row > allLinesLocVector[i].row && symbol_end_row > allLinesLocVector[i].row + avg_dist_staff_lines ){
+				s.pitch = 'E';
+				continue;
+			}				
 		}
+		
+		else{
+			
+			if((allLinesLocVector[i].row < symbol_end_row) && (allLinesLocVector[i].row>symbol_start_row )){
+				// cout<<"setting symbol for line "<< i+1 << " ("<< s.row<<","<<s.col<<"): "<<allLinesLocVector[i].line_marker<<"\n";
+				s.pitch = allLinesLocVector[i].line_marker;
+				continue;
+			}
+		
+		
+			else if(symbol_start_row>=allLinesLocVector[i].row && symbol_end_row <= allLinesLocVector[i+1].row)
+			{
+				s.pitch = allLinesLocVector[i].below_marker;
+				continue;
+			}
+			
+		} 
+				
 	}
 
 }
@@ -599,14 +614,11 @@ void find_symbols(HammingDistances &hm, SDoublePlane &input, SDoublePlane img_te
 	
 	double max_hamming_distance = hm.max_hamming_distance;
 	SDoublePlane matrix = hm.hamming_matrix;
-	vector<LineLocation> myVector;
+	vector<LineLocation> allLinesLocVector;
 	double confidence_threshold;
 	if (symbol_type == NOTEHEAD){
 		confidence_threshold = 0.9;
-		myVector = find_line_location(input);
-		// for(int i =0;i<myVector.size();i++){
-			// cout<<"Line "<< i+1 << ":" << myVector[i].row<<"\n";
-		// }
+		allLinesLocVector = find_line_location(input);
 	}
 	else
 		confidence_threshold = 0.95;
@@ -626,16 +638,17 @@ void find_symbols(HammingDistances &hm, SDoublePlane &input, SDoublePlane img_te
 				s.confidence = value;
 				
 				s.pitch = ' ';
+				
 				if(symbol_type == NOTEHEAD)
-					set_symbol_marker(s, myVector);
+					set_symbol_marker(s, allLinesLocVector);
 				else
 					s.pitch = ' ';
 				
 				symbols.push_back(s);
 				// Marking the pixels of the template so that they are not detected again
 				for (int x=i; x < i+s.height; x++){
-					for (int y=j; y < j+s.width; y++){
-						matrix[x][y] = -1;
+					for (int y=j-5; y < j+s.width; y++){
+						matrix[x][y] = -100;
 					}	
 				}
 				
@@ -643,12 +656,6 @@ void find_symbols(HammingDistances &hm, SDoublePlane &input, SDoublePlane img_te
 
 		}
 }
-
-
-
-
-
-
 
 
 
@@ -726,8 +733,8 @@ int main(int argc, char *argv[]) {
 	vector <DetectedSymbol> symbols;
 	
 	find_symbols(hm_notehead, input_image, binary_notehead_template, symbols, NOTEHEAD);
-//	find_symbols(hm_quarterrest, input_image, binary_quarterrest_template, symbols, QUARTERREST);
-//	find_symbols(hm_eighthrest, input_image, binary_eighthrest_template, symbols, EIGHTHREST);
+	find_symbols(hm_quarterrest, input_image, binary_quarterrest_template, symbols, QUARTERREST);
+	find_symbols(hm_eighthrest, input_image, binary_eighthrest_template, symbols, EIGHTHREST);
 
 	// for(int i =0;i<symbols.size();i++){
 		// cout<<"Symbol "<< i << ":" << symbols[i].row<<"\n";
