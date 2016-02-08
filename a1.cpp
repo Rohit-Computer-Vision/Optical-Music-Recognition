@@ -10,6 +10,8 @@
 
 using namespace std;
 
+#define DEG2RAD(d) (d * M_PI / 180.0)
+
 // The simple image class is called SDoublePlane, with each pixel represented as
 // a double (floating point) type. This means that an SDoublePlane can represent
 // values outside the range 0-255, and thus can represent squared gradient magnitudes,
@@ -78,6 +80,11 @@ class HammingDistances{
 public: 
 	SDoublePlane hamming_matrix;
 	double max_hamming_distance;
+};
+
+class Line {
+public:
+	int x1,y1,x2,y2; 
 };
 
 // Function that outputs the ascii detection output file
@@ -657,7 +664,131 @@ void find_symbols(HammingDistances &hm, SDoublePlane &input, SDoublePlane img_te
 		}
 }
 
+// Hough Transform
+SDoublePlane runHoughTransform(SDoublePlane &img){
+	
+	printImg2File("sobelPNG.txt",img);
 
+	int r = img.rows();
+	int c = img.cols();
+	double hough_height;
+
+	// Initialize Accumulator matrix
+	if (r>c)
+		hough_height = r / sqrt(2);
+	else
+		hough_height = c / sqrt(2);
+	
+	int maxDist = round(hough_height * 2);
+	int theta = 180;
+	double rho,t;
+	int iRho;
+
+	
+	//int H[maxDist][theta];
+	
+	SDoublePlane H(maxDist, theta);
+	
+	for (int i = 0; i < maxDist; i++)
+	  for (int j = 0; j < theta; j++)
+		H[i][j] = 0;
+	
+	
+	double center_x = c/2;
+	double center_y = r/2;
+	
+	for (int i = 0; i < r; i++) {
+		for (int j = 0; j < c; j++) {
+			if (img[i][j] > 250){
+				
+				// Fill accumulator array
+				for (int iTheta = 0 ; iTheta < theta ; iTheta++){
+					
+					// Getting angle in radians
+					t = iTheta * M_PI / 180;
+					
+					// Calculate distance from origin for this angle				
+					rho = ( j - center_x) * cos (t) + ( i - center_y) * sin(t);
+					iRho = int(round(rho + hough_height));
+					H[iRho][iTheta]++;
+					
+					//cout << "New H["<<iRho<<","<<iTheta<<"]: " << H[iRho][iTheta] << "\n";
+					
+				}
+				
+			}
+		}
+	}
+	printImg2File("accumulator.txt",H);
+	return H;
+}
+
+vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, int threshold){
+	
+    int rows = accumulator.rows();
+    int cols = accumulator.cols();
+    int windowSize = 5;
+    bool isMax = true;
+    vector<Line> houghLines;
+    
+    printImg2File("Matrix.txt", accumulator);
+
+    for(int rho=0;rho<rows;rho++){
+		for(int theta =0; theta<cols;theta++){
+        
+			if (accumulator[rho][theta] >= threshold){
+				
+				int max = accumulator[rho][theta];
+				for (int wx=-windowSize; wx<=windowSize; wx++){
+					for (int wy=-windowSize; wy<=windowSize; wy++){
+						if ((wx+rho >= 0 && wx+rho < rows) && (wy+theta>=0 && wy+theta<cols)){
+							if (accumulator[rho+wx][theta+wy]>max){
+								max = accumulator[rho+wx][theta+wy];
+								wx = 6;
+								wy = 6;
+							}
+						}
+					}
+				}
+				
+				//cout << max << "\t";
+				if (max > accumulator[rho][theta])
+					continue;
+				
+				Line line;
+				double degInRadian = DEG2RAD(theta);
+				// Transform the selected lines back to Cartesian Space
+				if (theta >= 45 && theta <= 135){
+					// y = (rho - x cos(theta)) / sin(theta)
+					line.x1 = 0;
+					line.y1 = ((rho - rows/2) - ((line.x1 - cols/2) * cos( degInRadian))) / sin(degInRadian) + rows/2;					
+					line.x2 = cols - 0;
+					line.y2 = ((rho - rows/2) - ((line.x2 - cols/2) * cos(degInRadian))) / sin(degInRadian) + rows/2;
+			
+				} else {
+					
+					// x = (rho - y sin(theta)) / cos(theta)
+					line.y1 = 0;
+					line.x1 = ((rho - rows/2) - ((line.y1 - rows/2) * sin(degInRadian))) / cos(degInRadian) + cols/2;
+					line.y2 = rows - 0;
+					line.x2 = ((rho - rows/2) - ((line.y2 - rows/2) * sin(degInRadian))) / cos(degInRadian) + cols/2;
+				}
+				
+				cout<<"(x1,y1): ("<<line.x1<<","<<line.y1<<"), (x2,y2):("<<line.x2<<","<<line.y2<<")\n";
+				houghLines.push_back(line);
+			}
+		
+			// if(isMax == true){
+				// Pixel p;
+				// p.x = rho;
+				// p.y = theta;
+				// cout<<"x: "<<rho<<" y: "<<theta<<" pixel value "<< accumulator[rho][theta] <<"n";
+				// finalLines.push_back(p);
+			// }
+        }
+    }
+    return houghLines;
+}
 
 //
 // This main file just outputs a few test images. You'll want to change it to do
@@ -751,6 +882,23 @@ int main(int argc, char *argv[]) {
 	SDoublePlane template_sobel = sobel_gradient_filter(template1, true);
 	SDoublePlane template_sobel_blur = convolve_separable(template_sobel, row_filter, col_filter);
 	//******************** Q5 Sobel + separable kernel ***************************
+	
+	
+	//******************** Q6 Hough Transform ***************************
+	
+	/* Replace this with the output from Sobel Operator */
+	SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_image_blur_sobel_BW.png");
+	//SDoublePlane sobelBinary = convert_binary(sobelPNG);
+	//printImg2File("sobelPNG.txt",sobelPNG);
+	//SDoublePlane sobelPNG  = SImageIO::read_png_file("t2.png");
+	SDoublePlane hough_transform_accu = runHoughTransform(sobelPNG);
+	getLinesFromHoughSpace(hough_transform_accu, 1150);
+	
+	//vector <DetectedSymbol> symbols1;
+	//write_detection_image("hough_transform.png", symbols1, hough_transform);	
+	
+	
+	//******************** Q6 Hough Transform ***************************
 	
 	/*
 
