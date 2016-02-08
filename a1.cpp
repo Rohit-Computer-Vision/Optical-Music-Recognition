@@ -787,7 +787,7 @@ int main(int argc, char *argv[]) {
 
 	
 	//******************** Q5 Sobel + separable kernel ***************************
-	//Applying Sobel followed by a separable blur filter
+	//Applying Sobel on the blurred image
 	//SDoublePlane image_sobel = sobel_filter(input_image, true);
 	//SDoublePlane image_sobel_blur = convolve_separable(image_sobel, row_filter, col_filter);
 	//SDoublePlane template_sobel = sobel_filter(template1, true);
