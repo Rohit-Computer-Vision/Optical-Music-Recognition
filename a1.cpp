@@ -106,6 +106,16 @@ void write_detection_txt(const string &filename,
 	}
 }
 
+// 
+// void write_detection_image(const string &filename, const SDoublePlane &input) {
+	// SDoublePlane output_planes[3];
+	// for (int i = 0; i < 3; i++)
+		// output_planes[i] = input;
+		
+	// SImageIO::write_png_file(filename.c_str(), output_planes[0],
+			// output_planes[1], output_planes[2]);
+// }
+
 // Function that outputs a visualization of detected symbols
 void write_detection_image(const string &filename,
 		const vector<DetectedSymbol> &symbols, const SDoublePlane &input) {
@@ -134,6 +144,8 @@ void write_detection_image(const string &filename,
 	SImageIO::write_png_file(filename.c_str(), output_planes[0],
 			output_planes[1], output_planes[2]);
 }
+
+
 
 int reflect(int pixel, int bound) { //need to consider filter of length more than 3
 	//cout<<"reflect ("<<pixel<<","<<bound<<")";
@@ -699,7 +711,7 @@ SDoublePlane runHoughTransform(SDoublePlane &img){
 	
 	for (int i = 0; i < r; i++) {
 		for (int j = 0; j < c; j++) {
-			if (img[i][j] > 250){
+			if (img[i][j] > 255){
 				
 				// Fill accumulator array
 				for (int iTheta = 0 ; iTheta < theta ; iTheta++){
@@ -723,11 +735,13 @@ SDoublePlane runHoughTransform(SDoublePlane &img){
 	return H;
 }
 
-vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, int threshold){
+vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &img, int threshold){
 	
+	int img_w = img.cols();
+	int img_h = img.rows();
     int rows = accumulator.rows();
     int cols = accumulator.cols();
-    int windowSize = 5;
+    int windowSize = 4;
     bool isMax = true;
     vector<Line> houghLines;
     
@@ -742,16 +756,15 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, int threshold){
 				for (int wx=-windowSize; wx<=windowSize; wx++){
 					for (int wy=-windowSize; wy<=windowSize; wy++){
 						if ((wx+rho >= 0 && wx+rho < rows) && (wy+theta>=0 && wy+theta<cols)){
-							if (accumulator[rho+wx][theta+wy]>max){
+							if ((int)accumulator[rho+wx][theta+wy] > max){
 								max = accumulator[rho+wx][theta+wy];
-								wx = 6;
-								wy = 6;
+								wx = 5;
+								wy = 5;
 							}
 						}
 					}
 				}
 				
-				//cout << max << "\t";
 				if (max > accumulator[rho][theta])
 					continue;
 				
@@ -761,20 +774,20 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, int threshold){
 				if (theta >= 45 && theta <= 135){
 					// y = (rho - x cos(theta)) / sin(theta)
 					line.x1 = 0;
-					line.y1 = ((rho - rows/2) - ((line.x1 - cols/2) * cos( degInRadian))) / sin(degInRadian) + rows/2;					
-					line.x2 = cols - 0;
-					line.y2 = ((rho - rows/2) - ((line.x2 - cols/2) * cos(degInRadian))) / sin(degInRadian) + rows/2;
+					line.y1 = ((rho - rows/2) - ((line.x1 - img_w/2) * cos( degInRadian))) / sin(degInRadian) + img_h/2;					
+					line.x2 = img_w - 0;
+					line.y2 = ((rho - rows/2) - ((line.x2 - img_w/2) * cos(degInRadian))) / sin(degInRadian) + img_h/2;
 			
 				} else {
 					
 					// x = (rho - y sin(theta)) / cos(theta)
 					line.y1 = 0;
-					line.x1 = ((rho - rows/2) - ((line.y1 - rows/2) * sin(degInRadian))) / cos(degInRadian) + cols/2;
-					line.y2 = rows - 0;
-					line.x2 = ((rho - rows/2) - ((line.y2 - rows/2) * sin(degInRadian))) / cos(degInRadian) + cols/2;
+					line.x1 = ((rho - rows/2) - ((line.y1 - img_h/2) * sin(degInRadian))) / cos(degInRadian) + img_w/2;
+					line.y2 = img_h - 0;
+					line.x2 = ((rho - rows/2) - ((line.y2 - img_h/2) * sin(degInRadian))) / cos(degInRadian) + img_w/2;
 				}
 				
-				cout<<"(x1,y1): ("<<line.x1<<","<<line.y1<<"), (x2,y2):("<<line.x2<<","<<line.y2<<")\n";
+				//cout<<"(x1,y1): ("<<line.x1<<","<<line.y1<<"), (x2,y2):("<<line.x2<<","<<line.y2<<")\n";
 				houghLines.push_back(line);
 			}
 		
@@ -790,6 +803,36 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, int threshold){
     return houghLines;
 }
 
+void write_staves_image(const string &filename, const SDoublePlane &img, vector<Line> linesVector){
+	
+	SDoublePlane output_planes[3];
+	
+	for (int i = 0; i < 3; i++)
+		output_planes[i] = img;
+					
+	int r = img.rows();
+	int c = img.cols();
+	
+	int x1, y1, x2, y2;
+	for (int i = 0; i < linesVector.size(); i++) {
+		x1 = linesVector[i].x1;
+		y1 = linesVector[i].y1;
+		x2 = linesVector[i].x2;
+		y2 = linesVector[i].y2;
+		cout<<"(x1,y1): ("<<x1<<","<<y1<<"), (x2,y2):("<<x2<<","<<y2<<")\n";
+		
+		overlay_rectangle(output_planes[2], y1, x1, y2, x2, 255, 2);
+		overlay_rectangle(output_planes[0], y1, x1, y2, x2, 0, 2);
+		overlay_rectangle(output_planes[1], y1, x1, y2, x2, 0, 2);
+
+	}
+	
+	SImageIO::write_png_file(filename.c_str(), output_planes[0],
+			output_planes[1], output_planes[2]);
+		
+}
+
+
 //
 // This main file just outputs a few test images. You'll want to change it to do
 //  something more interesting!
@@ -799,19 +842,31 @@ int main(int argc, char *argv[]) {
 		cerr << "usage: " << argv[0] << " input_image" << endl;
 		return 1;
 	}
+	
 
 	string input_filename(argv[1]);
 
 	string TEMPLATE_NOTEHEAD = "template1.png";
 	string TEMPLATE_QUARTERREST = "template2.png";
 	string TEMPLATE_EIGHTHREST = "template3.png";
+	
+	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
+	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
 
-	// test step 2 by applying mean filters to the input image
+	
+	//******************** Q2 - Begins ***************************
+	
 	SDoublePlane mean_filter(3, 3);
 	for (int i = 0; i < 3; i++)
 		for (int j = 0; j < 3; j++)
 			mean_filter[i][j] = 1 / 9.0;
+		
+	//******************** Q2 - Ends ***************************
 
+	
+	
+	//******************** Q3 - Begins ***************************
+	
 	SDoublePlane row_filter(1, 3);
 	SDoublePlane col_filter(3, 1);
 
@@ -824,10 +879,33 @@ int main(int argc, char *argv[]) {
 		for (int j = 0; j < 1; j++)
 			col_filter[i][j] = 1 / 3.0;
 
+	//******************** Q3 - Ends ***************************
+
+	
+	//******************** Q4 - Begins ***************************
+	
+	//******************** Q4 - Ends ***************************	
+	
+	
+	//******************** Q5 - Begins ***************************
+	
+	//******************** Q5- Ends ***************************	
+
+	
+	//******************** Q6 - Begins ***************************
+	
+	//******************** Q6 - Ends ***************************	
+
+	
+	//******************** Q7 - Begins ***************************
+	
+	//******************** Q7 - Ends ***************************	
+	
+
+
+
 
 		
-	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
-	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
 	
 	// Convolve General 2D Kernel	
 	// SDoublePlane output_image = convolve_general(input_image, mean_filter); // Uncomment Later
@@ -871,7 +949,7 @@ int main(int argc, char *argv[]) {
 		// cout<<"Symbol "<< i << ":" << symbols[i].row<<"\n";
 	// }
 
-	//write_detection_txt("detected.txt", symbols);
+	write_detection_txt("detected.txt", symbols);
     write_detection_image("detected.png", symbols, input_image);
 
 	
@@ -887,12 +965,20 @@ int main(int argc, char *argv[]) {
 	//******************** Q6 Hough Transform ***************************
 	
 	/* Replace this with the output from Sobel Operator */
-	SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_image_blur_sobel_BW.png");
+	SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music1_blur_sobel_BW.png");
+	//SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music2_blur_sobel_BW.png");
+	 //SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music3_blur_sobel_BW.png");
+	// SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music4_blur_sobel_BW.png");
+	 // SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_rach_blur_sobel_BW.png");	
+
+	//SDoublePlane sobelPNG  = SImageIO::read_png_file("t2.png");
 	//SDoublePlane sobelBinary = convert_binary(sobelPNG);
 	//printImg2File("sobelPNG.txt",sobelPNG);
-	//SDoublePlane sobelPNG  = SImageIO::read_png_file("t2.png");
 	SDoublePlane hough_transform_accu = runHoughTransform(sobelPNG);
-	getLinesFromHoughSpace(hough_transform_accu, 1150);
+	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelPNG, 1050);
+	
+	write_staves_image("staves1.png", sobelPNG,linesFromHoughSpace);
+
 	
 	//vector <DetectedSymbol> symbols1;
 	//write_detection_image("hough_transform.png", symbols1, hough_transform);	
