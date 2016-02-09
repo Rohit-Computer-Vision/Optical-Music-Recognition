@@ -330,8 +330,11 @@ SDoublePlane sobel_filter(const SDoublePlane &input) {
 	output2 = convolve_general(input, sobelVerFilter);
 
 	for (int i = 0; i < input.rows(); i++) 
-		for (int j = 0; j < input.cols(); j++)
+		for (int j = 0; j < input.cols(); j++){
 			output[i][j] = sqrt(output1[i][j]*output1[i][j] + output2[i][j]*output2[i][j]);
+			if(output[i][j]>200)	output[i][j] = 255;
+			else	output[i][j] = 0;
+		}
 	
 	return output;
 }
@@ -761,7 +764,7 @@ void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> allLinesLocVector
 	}
 }
 
-void find_symbols(HammingDistances hm, SDoublePlane &input, SDoublePlane img_template, vector <DetectedSymbol> &symbols, Type symbol_type){
+void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_template, vector <DetectedSymbol> &symbols, Type symbol_type){
 	
 	int template_rows = img_template.rows();
 	int template_cols = img_template.cols();
@@ -964,15 +967,31 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 double getAvgDistanceBetweenStaffLines(vector<Line> linesVector){
 	
 	int numberOfLines = linesVector.size();
+	double allStaffHeightSum=0,avgDistanceBetweenStaffLines=0;
+	int numberOfStaff = 0;
+	if (numberOfLines % 5 == 0){
+		for (int i=0; i<numberOfLines; i+=5){
+			allStaffHeightSum += sqrt(pow(linesVector[i+4].x1-linesVector[i].x1,2)+pow(linesVector[i+4].y1-linesVector[i].y1,2));
+			// cout << "allStaffHeightSum: "<<allStaffHeightSum<<"\n";		
+			numberOfStaff++;
+		}
+		avgDistanceBetweenStaffLines = allStaffHeightSum/(double)numberOfStaff;
+	}else{
+		avgDistanceBetweenStaffLines = 0;
+	}
 	
-	int numberOfStaves = int(round(numberOfLines/5.0));
+	cout << "avgDistanceBetweenStaffLines: "<<avgDistanceBetweenStaffLines<<"\n";		
+
+	cout << "avgDistanceBetweenStaffLines/4: "<<avgDistanceBetweenStaffLines/4.0<<"\n";		
+
+	// int numberOfStaves = (round(numberOfLines/5.0));
 	
-	cout <<"\n***getAvgDistanceBetweenStaffLines***\n";	
-	cout << "numberOfLines" <<numberOfLines<<"\n";
-	cout << "numberOfStaves" <<numberOfStaves<<"\n";
+	// cout <<"\n***getAvgDistanceBetweenStaffLines***\n";	
+	// cout << "numberOfLines" <<numberOfLines<<"\n";
+	// cout << "numberOfStaves" <<numberOfStaves<<"\n";
 	
-	
-	
+	// Avg distance between every staff line
+	return avgDistanceBetweenStaffLines/4.0;
 	
 }
 
@@ -1007,21 +1026,19 @@ void write_staves_image(const string &filename, const SDoublePlane &img, vector<
 
 
 // Resize image
-SDoublePlane resize_image(SDoublePlane &input,int newWidth, int newHeight)
+SDoublePlane resize_image(SDoublePlane &input, double newScaleRatio)
 {
     int rows = input.rows();
     int cols = input.cols();
-    
+ 
+	int newWidth = newScaleRatio * cols;
+	int newHeight = newScaleRatio * rows ;
+	
+
+	cout << "newScaleRatio:" << newScaleRatio <<"\n";
+	cout<<"OldWidth * OldHeight :" << cols <<"x"<< rows << "\n";
+	cout<<"newWidth * newHeight :" << newWidth <<"x"<< newHeight << "\n";
     SDoublePlane output(newHeight, newWidth);
-    
-    double scaleWidth =  (double)newWidth / (double)cols;
-    double scaleHeight = (double)newHeight/ (double)rows;
-    
-    int rowsToGo = scaleHeight * 100;
-    int colsToGo = scaleWidth * 100;
-    
-    int colsToSkip = 100 - colsToGo;
-    int rowsToSkip = 100 - rowsToGo;
     
     set<int> mySetRows;
     
@@ -1063,6 +1080,42 @@ SDoublePlane resize_image(SDoublePlane &input,int newWidth, int newHeight)
     
     write_detection_image("Resized_pic.png", output);
     return output;
+}
+
+void detectSymbolsHammingDistance_Q4(const SDoublePlane& img,
+		const SDoublePlane& col_filter, const SDoublePlane& row_filter,  
+		const SDoublePlane& template_notehead,
+		const SDoublePlane& template_quarterrest,
+		const SDoublePlane& template_eighthrest, const string &filename){
+			
+	SDoublePlane convoluted_image = convolve_separable(img, row_filter, col_filter);
+	SDoublePlane convoluted_notehead_template = convolve_separable(template_notehead, row_filter, col_filter);
+	SDoublePlane convoluted_quarterrest_template = convolve_separable(template_quarterrest, row_filter, col_filter);
+	SDoublePlane convoluted_eighthrest_template = convolve_separable(template_eighthrest, row_filter, col_filter);
+	
+	cout<<"convoluted_image Done\n";
+	// Convert to Binary
+	SDoublePlane binary_convoluted_image = convert_binary(convoluted_image);
+	SDoublePlane binary_convoluted_notehead_template = convert_binary(convoluted_notehead_template);
+	SDoublePlane binary_convoluted_quarterrest_template = convert_binary(convoluted_quarterrest_template);
+	SDoublePlane binary_convoluted_eighthrest_template = convert_binary(convoluted_eighthrest_template);
+	cout<<"binary_convoluted_image Done\n";
+	
+	// Q4. Detecting symbols using Hamming Distances 
+	HammingDistances hm_notehead = find_hamming_distance(binary_convoluted_image, binary_convoluted_notehead_template);
+	HammingDistances hm_quarterrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_quarterrest_template);
+	HammingDistances hm_eighthrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_eighthrest_template);
+	cout<<"HammingDistances Done\n";
+	
+	vector <DetectedSymbol> symbols;
+	
+	 find_symbols(hm_notehead, img, binary_convoluted_notehead_template, symbols, NOTEHEAD);
+	 find_symbols(hm_quarterrest, img, binary_convoluted_quarterrest_template, symbols, QUARTERREST);
+	 find_symbols(hm_eighthrest, img, binary_convoluted_eighthrest_template, symbols, EIGHTHREST);
+	cout<<"find_symbols Done\n";
+	 
+	 write_detection_image(filename.c_str(), symbols, img);
+
 }
 
 int main(int argc, char *argv[]) {
@@ -1112,188 +1165,49 @@ int main(int argc, char *argv[]) {
 	//******************** Q3 - Ends ***************************
 
 	
-	
+	*/
 	//******************** Q4 - Begins ***************************
-	  
-	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
-	SDoublePlane convoluted_notehead_template = convolve_separable(template_notehead, row_filter, col_filter);
-	SDoublePlane convoluted_quarterrest_template = convolve_separable(template_quarterrest, row_filter, col_filter);
-	SDoublePlane convoluted_eighthrest_template = convolve_separable(template_eighthrest, row_filter, col_filter);
-	
-	// Convert to Binary
-	SDoublePlane binary_convoluted_image = convert_binary(convoluted_image);
-	SDoublePlane binary_convoluted_notehead_template = convert_binary(convoluted_notehead_template);
-	SDoublePlane binary_convoluted_quarterrest_template = convert_binary(convoluted_quarterrest_template);
-	SDoublePlane binary_convoluted_eighthrest_template = convert_binary(convoluted_eighthrest_template);
-	
-	// Q4. Detecting symbols using Hamming Distances 
-	HammingDistances hm_notehead = find_hamming_distance(binary_convoluted_image, binary_convoluted_notehead_template);
-	HammingDistances hm_quarterrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_quarterrest_template);
-	HammingDistances hm_eighthrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_eighthrest_template);
-	
-	vector <DetectedSymbol> symbols;
-	
-	 //find_symbols(hm_notehead, input_image, binary_convoluted_notehead_template, symbols, NOTEHEAD);
-	 //find_symbols(hm_quarterrest, input_image, binary_convoluted_quarterrest_template, symbols, QUARTERREST);
-	 find_symbols(hm_eighthrest, input_image, binary_convoluted_eighthrest_template, symbols, EIGHTHREST);
-
-	write_detection_image("output_q4.png", symbols, input_image);
-	//write_detection_txt("detected.txt", symbols);
-
-    //write_detection_image("detected.png", symbols, input_image);
-	
+	//detectSymbolsHammingDistance_Q4(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q4.png");
 	//******************** Q4 - Ends ***************************	
 	
-	*/
-
-
-
-
-	//******************** Q5 - Begins ***************************
-	//******************** Q5 Sobel + separable kernel ***************************
 	
+
+
+	//******************** Q5 - Begins ***************************	
 	int rows = input_image.rows(), cols = input_image.cols();
 	vector <DetectedSymbol> symbols1;
-
 	
-
-
-	SDoublePlane image_blur = convolve_general(input_image, mean_filter);					//blur
-	SDoublePlane image_blur_sobel = sobel_filter(image_blur);												//apply sobel filter
-	SDoublePlane binary_image_blur_sobel = convert_binary(image_blur_sobel);												//egde map
-	SDoublePlane image_edge_map = binary_image_blur_sobel;												//egde map
-	
-	SDoublePlane template_notehead_blur = convolve_general(template_notehead, mean_filter);					//blur
-	SDoublePlane template_notehead_blur_sobel = sobel_filter(template_notehead_blur);												//apply sobel filter
-	SDoublePlane binary_template_notehead_blur_sobel = convert_binary(template_notehead_blur_sobel);												//egde map
-	//write_detection_image("5.binary_template_notehead_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_notehead_blur_sobel));
-
-	SDoublePlane template_quarterrest_blur = convolve_general(template_quarterrest, mean_filter);					//blur
-	SDoublePlane template_quarterrest_blur_sobel = sobel_filter(template_quarterrest_blur);						//apply sobel filter
-	SDoublePlane binary_template_quarterrest_blur_sobel = convert_binary(template_quarterrest_blur_sobel);
-	//write_detection_image("6.binary_template_quarterrest_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_quarterrest_blur_sobel));
-
-	SDoublePlane template_eighthrest_blur = convolve_general(template_eighthrest, mean_filter);					//blur
-	SDoublePlane template_eighthrest_blur_sobel = sobel_filter(template_eighthrest_blur);						//apply sobel filter
-	SDoublePlane binary_template_eighthrest_blur_sobel = convert_binary(template_eighthrest_blur_sobel);
-	//write_detection_image("7.binary_template_eighthrest_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_eighthrest_blur_sobel));
-
-	
-	//Sobel on Image
-	SDoublePlane binary_image = convert_binary(input_image);													//convert image to binary
-	SDoublePlane binary_image_sobel = sobel_filter(binary_image);												//apply sobel filter
-	SDoublePlane binary_image_sobel_blur = convolve_general(binary_image_sobel, mean_filter);					//blur
-	SDoublePlane binary_binary_image_sobel_blur = convert_blur_to_binary(binary_image_sobel_blur);				//(edge map) coz blur made it not binary
-	SDoublePlane bw_binary_binary_image_sobel_blur = convert_binary_to_BW(binary_binary_image_sobel_blur);
-	write_detection_image("bw_binary_binary_image_sobel_blur.png", bw_binary_binary_image_sobel_blur);	//just to visualize
-	
-
-	//Sobel on template_notehead - bkp
-	SDoublePlane binary_template_notehead = convert_binary(template_notehead);
-	SDoublePlane binary_template_notehead_sobel = sobel_filter(binary_template_notehead);
-	SDoublePlane bw_binary_template_notehead_sobel = convert_binary_to_BW(binary_template_notehead_sobel);
-	//write_detection_image("bw_binary_template_notehead_sobel.png", symbols, bw_binary_template_notehead_sobel);
-	SDoublePlane binary_template_notehead_sobel_blur = convolve_general(binary_template_notehead_sobel, mean_filter);
-	//printImg2File("binary_template_notehead_sobel_blur.txt", binary_template_notehead_sobel_blur);
-	SDoublePlane binary_binary_template_notehead_sobel_blur = convert_blur_to_binary(binary_template_notehead_sobel_blur);		//(edge map)
-	//printImg2File("binary_binary_template_notehead_sobel_blur.txt", binary_binary_template_notehead_sobel_blur);
-	//SDoublePlane bw_binary_binary_template_notehead_sobel_blur = convert_binary_to_BW(binary_binary_template_notehead_sobel_blur);
-	//write_detection_image("bw_binary_binary_template_notehead_sobel_blur.png", symbols, bw_binary_binary_template_notehead_sobel_blur);
-
-	//Sobel on template_quarterrest
-	SDoublePlane binary_template_quarterrest = convert_binary(template_quarterrest);
-	SDoublePlane binary_template_quarterrest_sobel = sobel_filter(binary_template_quarterrest);
-	SDoublePlane bw_binary_template_quarterrest_sobel = convert_binary_to_BW(binary_template_quarterrest_sobel);
-	SDoublePlane binary_template_quarterrest_sobel_blur = convolve_general(binary_template_quarterrest_sobel, mean_filter);
-	SDoublePlane binary_binary_template_quarterrest_sobel_blur = convert_blur_to_binary(binary_template_quarterrest_sobel_blur);		//(edge map)
-
-	//Sobel on template_eighthrest
-	SDoublePlane binary_template_eighthrest = convert_binary(template_eighthrest);
-	SDoublePlane binary_template_eighthrest_sobel = sobel_filter(binary_template_eighthrest);
-	SDoublePlane bw_binary_template_eighthrest_sobel = convert_binary_to_BW(binary_template_eighthrest_sobel);
-	SDoublePlane binary_template_eighthrest_sobel_blur = convolve_general(binary_template_eighthrest_sobel, mean_filter);
-	SDoublePlane binary_binary_template_eighthrest_sobel_blur = convert_blur_to_binary(binary_template_eighthrest_sobel_blur);		//(edge map)
-	
-	
-	//calculate D
-	SDoublePlane D(rows, cols);
-	D = calculate_D(binary_binary_image_sobel_blur);
-	//write_detection_image("D.png", symbols, D);
-	//printImg2File("D.txt", D);
-	
-	//calculate score function 'f'
-	SDoublePlane F_template_notehead(rows, cols), F_template_quarterrest(rows, cols), F_template_eighthrest(rows, cols);
-	F_template_notehead = calculate_F(D, binary_binary_template_notehead_sobel_blur, 3);
-	F_template_quarterrest = calculate_F(D, binary_binary_template_quarterrest_sobel_blur, 5);
-	F_template_eighthrest = calculate_F(D, binary_binary_template_eighthrest_sobel_blur, 2);
-	//write_detection_image("F_template_notehead.png", symbols, F_template_notehead);
-	
-	//find symbols (using the class HammingDistances in order to match the fuctioning of find_symbols)
-	HammingDistances hm_F_template_notehead, hm_F_template_quarterrest, hm_F_template_eighthrest;
-	hm_F_template_notehead.hamming_matrix = F_template_notehead;
-	hm_F_template_quarterrest.hamming_matrix = F_template_quarterrest;
-	hm_F_template_eighthrest.hamming_matrix = F_template_eighthrest;
-	hm_F_template_notehead.max_hamming_distance = hm_F_template_quarterrest.max_hamming_distance = hm_F_template_eighthrest.max_hamming_distance = 255;
-	//vector <DetectedSymbol> symbols1;
-	find_symbols(hm_F_template_notehead, input_image, binary_binary_template_notehead_sobel_blur, symbols1, NOTEHEAD);
-	find_symbols(hm_F_template_quarterrest, input_image, binary_binary_template_quarterrest_sobel_blur, symbols1, QUARTERREST);
-	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols1, EIGHTHREST);
-	
-	write_detection_image("detected5.png", symbols1, input_image);
-
-/*	
-
-	
-	/*
-		//*************** Q2.Colvolving with mean filter ***************
-
-			output = restructure(output);
-		*/	//printf("img_max=%f", image_max(output));
-		/*	
-			for(i=0; i<input_rows - m; i++)
-				for(j=0; j<input_cols - n; j++)
-					if(output[i][j] < 100)
-						output[i][j] = 255;
-					else
-						output[i][j] = 0;
-		*/			
-		//	write_detection_image("detected2_q5.png", symbols, output);
-			//printImg2File("q5.txt", output);
-
-			
-		/*		
-		
-	*/
-	
+	SDoublePlane sobelPNG = sobel_filter(input_image);												//apply sobel filter
 	//******************** Q5- Ends ***************************	
 	
 	
-	//******************** Q6 - Begins ***************************
-		
-	// Replace this with the output from Sobel Operator 
-	// SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music1_blur_sobel_BW.png");
-	//SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music2_blur_sobel_BW.png");
-	 //SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music3_blur_sobel_BW.png");
-	// SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_music4_blur_sobel_BW.png");
-	 // SDoublePlane sobelPNG  = SImageIO::read_png_file("detected2_rach_blur_sobel_BW.png");	
-
-	//SDoublePlane sobelPNG  = SImageIO::read_png_file("t2.png");
-
-	//SDoublePlane sobelBinary = convert_binary(sobelPNG);
-	//printImg2File("sobelPNG.txt",sobelPNG);
-	
-	SDoublePlane sobelPNG = bw_binary_binary_image_sobel_blur;
-	SDoublePlane hough_transform_accu = runHoughTransform(sobelPNG);
-	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelPNG, 0.70);
+	//******************** Q6 - Begins ***************************	
+	SDoublePlane sobelInputPNG = sobel_filter(input_image);	
+	SDoublePlane hough_transform_accu = runHoughTransform(sobelInputPNG);
+	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelInputPNG, 0.76);
 	
 
-	write_detection_image("sobel_"+input_filename, sobelPNG);	
-	write_staves_image("staves_"+input_filename, sobelPNG,linesFromHoughSpace);
-	getAvgDistanceBetweenStaffLines(linesFromHoughSpace);
+	write_detection_image("sobel_"+input_filename, sobelInputPNG);	
+	write_staves_image("staves_"+input_filename, sobelInputPNG,linesFromHoughSpace);
 	
-    //write_detection_image("detected2.png", symbols, output_image);
-	//write_detection_image("detected2_image_sobel_blur.png", symbols, image_sobel_blur);
-		
+	// Find Scaling factor
+	/*
+	double avgDistBetweenEveryStaffLine = getAvgDistanceBetweenStaffLines(linesFromHoughSpace);
+	
+	cout<<"template1.rows()"<<template1.rows()<<"\n";
+	cout<<"avgDistBetweenEveryStaffLine"<<avgDistBetweenEveryStaffLine<<"\n";
+	
+	if (avgDistBetweenEveryStaffLine == 0)
+		avgDistBetweenEveryStaffLine = 50;
+	double newScaleRatio = template1.rows()/avgDistBetweenEveryStaffLine;
+	
+	
+	SDoublePlane rescaledImage = resize_image(input_image, newScaleRatio);
+	cout<<"Rescale Done\n";
+	  
+	detectSymbolsHammingDistance_Q4(rescaledImage, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q7.png");		
+	
+	*/
 	//******************** Q6 - Ends ***************************	
 
 	
