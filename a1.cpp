@@ -332,10 +332,53 @@ SDoublePlane sobel_filter(const SDoublePlane &input) {
 	for (int i = 0; i < input.rows(); i++) 
 		for (int j = 0; j < input.cols(); j++){
 			output[i][j] = sqrt(output1[i][j]*output1[i][j] + output2[i][j]*output2[i][j]);
-			if(output[i][j]>200)	output[i][j] = 255;
-			else	output[i][j] = 0;
 		}
 	
+	return output;
+}
+
+SDoublePlane direct_sobel(const SDoublePlane &input) {
+	SDoublePlane output1(input.rows(), input.cols());
+	SDoublePlane output2(input.rows(), input.cols());
+	SDoublePlane output(input.rows(), input.cols());
+
+	// Implement a sobel gradient estimation filter with 1-d filters
+	SDoublePlane sobelHorFilter(3, 3);
+	SDoublePlane sobelVerFilter(3, 3);
+	
+	//initialize
+	sobelHorFilter[0][0] = -1;
+	sobelHorFilter[0][1] = 0;
+	sobelHorFilter[0][2] = 1;
+	sobelHorFilter[1][0] = -2;
+	sobelHorFilter[1][1] = 0;
+	sobelHorFilter[1][2] = 2;
+	sobelHorFilter[2][0] = -1;
+	sobelHorFilter[2][1] = 0;
+	sobelHorFilter[2][2] = 1;
+	
+	sobelVerFilter[0][0] = -1;
+	sobelVerFilter[0][1] = -2;
+	sobelVerFilter[0][2] = -1;
+	sobelVerFilter[1][0] = 0;
+	sobelVerFilter[1][1] = 0;
+	sobelVerFilter[1][2] = 0;
+	sobelVerFilter[2][0] = 1;
+	sobelVerFilter[2][1] = 2;
+	sobelVerFilter[2][2] = 1;
+	
+	output1 = convolve_general(input, sobelHorFilter);
+	output2 = convolve_general(input, sobelVerFilter);
+
+	for (int i = 0; i < input.rows(); i++) 
+		for (int j = 0; j < input.cols(); j++) {
+			output[i][j] = sqrt(output1[i][j]*output1[i][j] + output2[i][j]*output2[i][j]);
+			if(output[i][j] > 200)
+				output[i][j] = 255;
+			else
+				output[i][j] = 0;
+		}
+				
 	return output;
 }
 
@@ -483,6 +526,27 @@ SDoublePlane central_edge(SDoublePlane &input){
 		}
 	}
 	return output;
+}
+
+SDoublePlane alternate_edge(SDoublePlane &input){
+	int rows = input.rows();
+	int cols = input.cols();
+	int count = 0, start = 0, mid = 0;
+	SDoublePlane output(rows,cols);
+
+	//making right and bottom boundary black
+	for(int j=0; j<cols; j++)
+		input[rows-1][j] = 0;
+	for(int i=0; i<rows; i++)
+		input[i][cols-1] = 0;
+	
+	for(int j=0; j<cols; j++){
+		for(int i=0; i<rows; i++) {
+			if(input[i][j] < input[i][j+1])
+				input[i][j] = 0;
+		}
+	}
+	return input;
 }
 
 int dmin(int a, int b, int c) {
@@ -1163,9 +1227,84 @@ int main(int argc, char *argv[]) {
 
 	//******************** Q5 - Begins ***************************	
 	int rows = input_image.rows(), cols = input_image.cols();
-	vector <DetectedSymbol> symbols1;
+	vector <DetectedSymbol> symbols;
 	
-	SDoublePlane sobelPNG = sobel_filter(input_image);												//apply sobel filter
+	SDoublePlane sobelPNG = sobel_filter(input_image);
+	SDoublePlane image_sobel = direct_sobel(input_image);
+	write_detection_image("edges.png", symbols, convert_BW(image_sobel));
+	
+	SDoublePlane image_basic_sobel = sobel_filter(input_image);
+	SDoublePlane image_basic_sobel_blur = sobel_filter(image_basic_sobel);
+	SDoublePlane image_basic_sobel_blur_alternate = alternate_edge(image_basic_sobel_blur);	//direct sobel
+	
+
+	SDoublePlane image_blur = convolve_general(input_image, mean_filter);
+	SDoublePlane image_blur_sobel = sobel_filter(image_blur);
+	SDoublePlane binary_image_blur_sobel = convert_binary(image_blur_sobel);
+	SDoublePlane image_edge_map = binary_image_blur_sobel;
+	
+	SDoublePlane template_notehead_blur = convolve_general(template_notehead, mean_filter);
+	SDoublePlane template_notehead_blur_sobel = sobel_filter(template_notehead_blur);
+	SDoublePlane binary_template_notehead_blur_sobel = convert_binary(template_notehead_blur_sobel);
+	
+	SDoublePlane template_quarterrest_blur = convolve_general(template_quarterrest, mean_filter);
+	SDoublePlane template_quarterrest_blur_sobel = sobel_filter(template_quarterrest_blur);
+	SDoublePlane binary_template_quarterrest_blur_sobel = convert_binary(template_quarterrest_blur_sobel);
+	
+	SDoublePlane template_eighthrest_blur = convolve_general(template_eighthrest, mean_filter);
+	SDoublePlane template_eighthrest_blur_sobel = sobel_filter(template_eighthrest_blur);
+	SDoublePlane binary_template_eighthrest_blur_sobel = convert_binary(template_eighthrest_blur_sobel);
+	
+	//Sobel on Image
+	SDoublePlane binary_image = convert_binary(input_image);													//convert image to binary
+	SDoublePlane binary_image_sobel = sobel_filter(binary_image);												//apply sobel filter
+	SDoublePlane binary_image_sobel_blur = convolve_general(binary_image_sobel, mean_filter);					//blur
+	SDoublePlane binary_binary_image_sobel_blur = convert_blur_to_binary(binary_image_sobel_blur);
+	SDoublePlane bw_binary_binary_image_sobel_blur = convert_binary_to_BW(binary_binary_image_sobel_blur);
+	
+	//Sobel on template_notehead
+	SDoublePlane binary_template_notehead = convert_binary(template_notehead);
+	SDoublePlane binary_template_notehead_sobel = sobel_filter(binary_template_notehead);
+	SDoublePlane bw_binary_template_notehead_sobel = convert_binary_to_BW(binary_template_notehead_sobel);
+	SDoublePlane binary_template_notehead_sobel_blur = convolve_general(binary_template_notehead_sobel, mean_filter);
+	SDoublePlane binary_binary_template_notehead_sobel_blur = convert_blur_to_binary(binary_template_notehead_sobel_blur);		//(edge map)
+	
+	//Sobel on template_quarterrest
+	SDoublePlane binary_template_quarterrest = convert_binary(template_quarterrest);
+	SDoublePlane binary_template_quarterrest_sobel = sobel_filter(binary_template_quarterrest);
+	SDoublePlane bw_binary_template_quarterrest_sobel = convert_binary_to_BW(binary_template_quarterrest_sobel);
+	SDoublePlane binary_template_quarterrest_sobel_blur = convolve_general(binary_template_quarterrest_sobel, mean_filter);
+	SDoublePlane binary_binary_template_quarterrest_sobel_blur = convert_blur_to_binary(binary_template_quarterrest_sobel_blur);		//(edge map)
+
+	//Sobel on template_eighthrest
+	SDoublePlane binary_template_eighthrest = convert_binary(template_eighthrest);
+	SDoublePlane binary_template_eighthrest_sobel = sobel_filter(binary_template_eighthrest);
+	SDoublePlane bw_binary_template_eighthrest_sobel = convert_binary_to_BW(binary_template_eighthrest_sobel);
+	SDoublePlane binary_template_eighthrest_sobel_blur = convolve_general(binary_template_eighthrest_sobel, mean_filter);
+	SDoublePlane binary_binary_template_eighthrest_sobel_blur = convert_blur_to_binary(binary_template_eighthrest_sobel_blur);		//(edge map)
+	
+	
+	//calculate D
+	SDoublePlane D(rows, cols);
+	D = calculate_D(binary_binary_image_sobel_blur);
+	
+	//calculate score function 'f'
+	SDoublePlane F_template_notehead(rows, cols), F_template_quarterrest(rows, cols), F_template_eighthrest(rows, cols);
+	F_template_notehead = calculate_F(D, binary_binary_template_notehead_sobel_blur, 3);
+	F_template_quarterrest = calculate_F(D, binary_binary_template_quarterrest_sobel_blur, 5);
+	F_template_eighthrest = calculate_F(D, binary_binary_template_eighthrest_sobel_blur, 2);
+	
+	//find symbols (using the class HammingDistances in order to match the fuctioning of find_symbols)
+	HammingDistances hm_F_template_notehead, hm_F_template_quarterrest, hm_F_template_eighthrest;
+	hm_F_template_notehead.hamming_matrix = F_template_notehead;
+	hm_F_template_quarterrest.hamming_matrix = F_template_quarterrest;
+	hm_F_template_eighthrest.hamming_matrix = F_template_eighthrest;
+	hm_F_template_notehead.max_hamming_distance = hm_F_template_quarterrest.max_hamming_distance = hm_F_template_eighthrest.max_hamming_distance = 255;
+	find_symbols(hm_F_template_notehead, input_image, binary_binary_template_notehead_sobel_blur, symbols, NOTEHEAD);
+	find_symbols(hm_F_template_quarterrest, input_image, binary_binary_template_quarterrest_sobel_blur, symbols, QUARTERREST);
+	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols, EIGHTHREST);
+	
+	write_detection_image("detected5.png", symbols, input_image);
 	//******************** Q5- Ends ***************************	
 	
 	
