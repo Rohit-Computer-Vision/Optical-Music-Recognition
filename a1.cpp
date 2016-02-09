@@ -647,6 +647,7 @@ void set_line_tags(LineLocation &lineLoc, int count){
 	}
 }
 
+// Finding Line Location for Q4. As this was a open ended question, we found the number of lines using this approach.
 vector<LineLocation> find_line_location(SDoublePlane &input){
 	
 	int rows = input.rows();
@@ -764,6 +765,7 @@ void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> allLinesLocVector
 	}
 }
 
+// Find symbols in the given image for the given template
 void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_template, vector <DetectedSymbol> &symbols, Type symbol_type){
 	
 	int template_rows = img_template.rows();
@@ -772,13 +774,6 @@ void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_temp
 	double max_hamming_distance = hm.max_hamming_distance;
 	SDoublePlane matrix = hm.hamming_matrix;
 	
-	// SDoublePlane matrix(hm.hamming_matrix.rows(),hm.hamming_matrix.cols());
-	
-	// for (int ix = 0; ix < hm.hamming_matrix.rows();ix++ )
-		// for (int jy=0; jy<hm.hamming_matrix.cols();jy++)
-			 // matrix[ix][jy]= hm.hamming_matrix[ix][jy];
-	
-
 	vector<LineLocation> allLinesLocVector;
 	double confidence_threshold;
 	if (symbol_type == NOTEHEAD){
@@ -788,7 +783,6 @@ void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_temp
 	else
 		confidence_threshold = 0.95;
 		
-	
 	// Finding symbols
 	for(int i =0;i<matrix.rows();i++){
 		for(int j=0;j<matrix.cols();j++){
@@ -812,7 +806,7 @@ void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_temp
 				symbols.push_back(s);
 				// Marking the pixels of the template so that they are not detected again
 				for (int x=i; x < i+s.height; x++){
-					for (int y=j-5; y < j+s.width; y++){
+					for (int y=j; y < j+s.width; y++){
 						matrix[x][y] = -100;
 					}	
 				}
@@ -820,10 +814,7 @@ void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_temp
 			}
 
 		}
-		// cout << i << "\n";
 	}
-	
-	return;
 }
 
 // Hough Transform
@@ -848,9 +839,6 @@ SDoublePlane runHoughTransform(SDoublePlane &img){
 	int theta = 180;
 	double rho,t;
 	int iRho;
-
-	
-	//int H[maxDist][theta];
 	
 	SDoublePlane H(maxDist, theta);
 	
@@ -876,12 +864,10 @@ SDoublePlane runHoughTransform(SDoublePlane &img){
 					rho = ( j - center_x) * cos (t) + ( i - center_y) * sin(t);
 					iRho = int(round(rho + hough_height));
 					H[iRho][iTheta]++;
-					//cout << "New H["<<iRho<<","<<iTheta<<"]: " << H[iRho][iTheta] << "\n";
 				}
 			}
 		}
 	}
-	printImg2File("accumulator.txt",H);
 	return H;
 }
 
@@ -892,7 +878,7 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 	int img_h = img.rows();
     int rows = accumulator.rows();
     int cols = accumulator.cols();
-    int windowSize = 5;
+    int windowSize = 4;
     double maxValue = 0;
     vector<Line> houghLines;
 	
@@ -904,9 +890,8 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 		}
 	}
     
-    printImg2File("Matrix.txt", accumulator);
-
-	
+	// Printing accumulator matrix
+    //printImg2File("Matrix.txt", accumulator);
 
     for(int rho=0;rho<rows;rho++){
 		for(int theta =0; theta<cols;theta++){
@@ -919,8 +904,8 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 						if ((wx+rho >= 0 && wx+rho < rows) && (wy+theta>=0 && wy+theta<cols)){
 							if ((int)accumulator[rho+wx][theta+wy] > max){
 								max = accumulator[rho+wx][theta+wy];
-								wx = 5;
-								wy = 5;
+								wx += 2;
+								wy += 2;
 							}
 						}
 					}
@@ -949,9 +934,12 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 				}
 				
 				cout<<"(x1,y1): ("<<line.x1<<","<<line.y1<<"), (x2,y2):("<<line.x2<<","<<line.y2<<")\n";
-				houghLines.push_back(line);
+				
+				if (houghLines.empty()) houghLines.push_back(line);
+				else{
+					if (abs(line.y1 - (houghLines.back().y1)) > 5) houghLines.push_back(line);
+				}
 			}
-		
         }
     }
 
@@ -1108,13 +1096,12 @@ void detectSymbolsHammingDistance_Q4(const SDoublePlane& img,
 	cout<<"HammingDistances Done\n";
 	
 	vector <DetectedSymbol> symbols;
-	
-	 find_symbols(hm_notehead, img, binary_convoluted_notehead_template, symbols, NOTEHEAD);
-	 find_symbols(hm_quarterrest, img, binary_convoluted_quarterrest_template, symbols, QUARTERREST);
-	 find_symbols(hm_eighthrest, img, binary_convoluted_eighthrest_template, symbols, EIGHTHREST);
+	find_symbols(hm_notehead, img, binary_convoluted_notehead_template, symbols, NOTEHEAD);
+	find_symbols(hm_quarterrest, img, binary_convoluted_quarterrest_template, symbols, QUARTERREST);
+	find_symbols(hm_eighthrest, img, binary_convoluted_eighthrest_template, symbols, EIGHTHREST);
 	cout<<"find_symbols Done\n";
-	 
-	 write_detection_image(filename.c_str(), symbols, img);
+
+	write_detection_image(filename.c_str(), symbols, img);
 
 }
 
@@ -1167,10 +1154,11 @@ int main(int argc, char *argv[]) {
 	
 	*/
 	//******************** Q4 - Begins ***************************
-	//detectSymbolsHammingDistance_Q4(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q4.png");
+	detectSymbolsHammingDistance_Q4(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q4.png");
 	//******************** Q4 - Ends ***************************	
 	
 	
+
 
 
 	//******************** Q5 - Begins ***************************	
@@ -1184,14 +1172,13 @@ int main(int argc, char *argv[]) {
 	//******************** Q6 - Begins ***************************	
 	SDoublePlane sobelInputPNG = sobel_filter(input_image);	
 	SDoublePlane hough_transform_accu = runHoughTransform(sobelInputPNG);
-	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelInputPNG, 0.76);
+	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelInputPNG, 0.75);
 	
 
 	write_detection_image("sobel_"+input_filename, sobelInputPNG);	
 	write_staves_image("staves_"+input_filename, sobelInputPNG,linesFromHoughSpace);
 	
 	// Find Scaling factor
-	/*
 	double avgDistBetweenEveryStaffLine = getAvgDistanceBetweenStaffLines(linesFromHoughSpace);
 	
 	cout<<"template1.rows()"<<template1.rows()<<"\n";
@@ -1199,22 +1186,20 @@ int main(int argc, char *argv[]) {
 	
 	if (avgDistBetweenEveryStaffLine == 0)
 		avgDistBetweenEveryStaffLine = 50;
-	double newScaleRatio = template1.rows()/avgDistBetweenEveryStaffLine;
+	double newScaleRatio = template1.rows()/(avgDistBetweenEveryStaffLine - 0.5);
 	
 	
 	SDoublePlane rescaledImage = resize_image(input_image, newScaleRatio);
 	cout<<"Rescale Done\n";
 	  
 	detectSymbolsHammingDistance_Q4(rescaledImage, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q7.png");		
-	
-	*/
+
 	//******************** Q6 - Ends ***************************	
 
 	
 	//******************** Q7 - Begins ***************************
 	
 	//******************** Q7 - Ends ***************************	
-
 
 	
 	
