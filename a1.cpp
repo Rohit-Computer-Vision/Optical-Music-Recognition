@@ -36,7 +36,7 @@ using namespace std;
 // Draws a rectangle on an image plane, using the specified gray level value and line width.
 //
 void overlay_rectangle(SDoublePlane &input, int _top, int _left, int _bottom,
-		int _right, double graylevel, int width) {
+	int _right, double graylevel, int width) {
 	for (int w = -width / 2; w <= width / 2; w++) {
 		int top = _top + w, left = _left + w, right = _right + w, bottom =
 				_bottom + w;
@@ -111,8 +111,7 @@ public:
 };
 
 // Function that outputs the ascii detection output file
-void write_detection_txt(const string &filename,
-		const vector<struct DetectedSymbol> &symbols) {
+void write_detection_txt(const string &filename, const vector<struct DetectedSymbol> &symbols) {
 	ofstream ofs(filename.c_str());
 
 	for (int i = 0; i < symbols.size(); i++) {
@@ -168,9 +167,7 @@ void write_detection_image(const string &filename,
 			output_planes[1], output_planes[2]);
 }
 
-
-
-int reflect(int pixel, int bound) { //need to consider filter of length more than 3
+int reflect(int pixel, int bound) {
 	if (pixel < 0)
 		pixel = -pixel - 1;
 	else if (pixel > bound - 1)
@@ -372,13 +369,13 @@ SDoublePlane convert_binary(SDoublePlane &input){
 	int cols = input.cols();
 	SDoublePlane output(rows,cols);
 
-	double threshold = 100.0;
+	double threshold = 100;
 	for(int i= 0;i<rows;++i)
 		for(int j=0;j<cols;++j){
 			if(input[i][j] >= threshold)
 				output[i][j] = 1;
 			else
-				output[i][j] =0;
+				output[i][j] = 0;
 		}
 	return output;
 }
@@ -416,6 +413,22 @@ SDoublePlane convert_binary_to_BW(SDoublePlane &input){
 	return output;
 }
 
+SDoublePlane display_binary(SDoublePlane &input){
+
+	int rows = input.rows();
+	int cols = input.cols();
+	SDoublePlane output(rows,cols);
+
+	for(int i= 0; i<rows; ++i)
+		for(int j=0; j<cols; ++j){
+			if(input[i][j] < 0.3)
+				output[i][j] = 0;
+			else
+				output[i][j] = 255;
+		}
+	return output;
+}
+
 SDoublePlane convert_blur_to_binary(SDoublePlane &input){
 
 	int rows = input.rows();
@@ -429,6 +442,43 @@ SDoublePlane convert_blur_to_binary(SDoublePlane &input){
 			else
 				output[i][j] = 1;
 		}
+	return output;
+}
+
+SDoublePlane central_edge(SDoublePlane &input){
+	//input is a pure b&w image/template
+	int rows = input.rows();
+	int cols = input.cols();
+	int count = 0, start = 0, mid = 0;
+	SDoublePlane output(rows,cols);
+
+	for(int i=0; i<rows; i++) {
+		count = 0;
+		for(int j=0; j<cols; j++){
+			if(input[i][j] == 1) {
+				count++;
+				if(count == 1) {
+					start = j;
+					//printf("\nstart: %d", start);
+				}
+				//printf("\nif: (%d,%d,%d), ", i, j, count);
+			}
+			else if(input[i][j] == 0 or j == cols-1) {
+				//printf("\nelse: (%d,%d,%d), ", i, j, count);
+				if(count > 0) {
+					mid = start + count/2;
+					while(start < j) {
+						if(start == mid) {
+							output[i][start] = 255;
+							//printf("\nOutput[%d][%d]=255", i, start);
+						}
+						start++;
+					}
+				}
+				count = 0;
+			}
+		}
+	}
 	return output;
 }
 
@@ -1065,7 +1115,6 @@ int main(int argc, char *argv[]) {
 	
 	//******************** Q4 - Begins ***************************
 	  
-
 	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
 	SDoublePlane convoluted_notehead_template = convolve_separable(template_notehead, row_filter, col_filter);
 	SDoublePlane convoluted_quarterrest_template = convolve_separable(template_quarterrest, row_filter, col_filter);
@@ -1100,25 +1149,46 @@ int main(int argc, char *argv[]) {
 
 
 
-
-	
-
 	//******************** Q5 - Begins ***************************
-	
 	//******************** Q5 Sobel + separable kernel ***************************
+	
 	int rows = input_image.rows(), cols = input_image.cols();
+	vector <DetectedSymbol> symbols1;
+
+	
+
+
+	SDoublePlane image_blur = convolve_general(input_image, mean_filter);					//blur
+	SDoublePlane image_blur_sobel = sobel_filter(image_blur);												//apply sobel filter
+	SDoublePlane binary_image_blur_sobel = convert_binary(image_blur_sobel);												//egde map
+	SDoublePlane image_edge_map = binary_image_blur_sobel;												//egde map
+	
+	SDoublePlane template_notehead_blur = convolve_general(template_notehead, mean_filter);					//blur
+	SDoublePlane template_notehead_blur_sobel = sobel_filter(template_notehead_blur);												//apply sobel filter
+	SDoublePlane binary_template_notehead_blur_sobel = convert_binary(template_notehead_blur_sobel);												//egde map
+	//write_detection_image("5.binary_template_notehead_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_notehead_blur_sobel));
+
+	SDoublePlane template_quarterrest_blur = convolve_general(template_quarterrest, mean_filter);					//blur
+	SDoublePlane template_quarterrest_blur_sobel = sobel_filter(template_quarterrest_blur);						//apply sobel filter
+	SDoublePlane binary_template_quarterrest_blur_sobel = convert_binary(template_quarterrest_blur_sobel);
+	//write_detection_image("6.binary_template_quarterrest_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_quarterrest_blur_sobel));
+
+	SDoublePlane template_eighthrest_blur = convolve_general(template_eighthrest, mean_filter);					//blur
+	SDoublePlane template_eighthrest_blur_sobel = sobel_filter(template_eighthrest_blur);						//apply sobel filter
+	SDoublePlane binary_template_eighthrest_blur_sobel = convert_binary(template_eighthrest_blur_sobel);
+	//write_detection_image("7.binary_template_eighthrest_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_eighthrest_blur_sobel));
+
 	
 	//Sobel on Image
 	SDoublePlane binary_image = convert_binary(input_image);													//convert image to binary
 	SDoublePlane binary_image_sobel = sobel_filter(binary_image);												//apply sobel filter
-	//SDoublePlane bw_binary_image_sobel = convert_binary_to_BW(binary_image_sobel);							//convert to b&w only for viewing
-	//write_detection_image("bw_binary_image_sobel.png", symbols, bw_binary_image_sobel);
 	SDoublePlane binary_image_sobel_blur = convolve_general(binary_image_sobel, mean_filter);					//blur
 	SDoublePlane binary_binary_image_sobel_blur = convert_blur_to_binary(binary_image_sobel_blur);				//(edge map) coz blur made it not binary
 	SDoublePlane bw_binary_binary_image_sobel_blur = convert_binary_to_BW(binary_binary_image_sobel_blur);
-	//write_detection_image("bw_binary_binary_image_sobel_blur.png", bw_binary_binary_image_sobel_blur);	//just to visualize
+	write_detection_image("bw_binary_binary_image_sobel_blur.png", bw_binary_binary_image_sobel_blur);	//just to visualize
 	
-	//Sobel on template_notehead
+
+	//Sobel on template_notehead - bkp
 	SDoublePlane binary_template_notehead = convert_binary(template_notehead);
 	SDoublePlane binary_template_notehead_sobel = sobel_filter(binary_template_notehead);
 	SDoublePlane bw_binary_template_notehead_sobel = convert_binary_to_BW(binary_template_notehead_sobel);
@@ -1129,14 +1199,14 @@ int main(int argc, char *argv[]) {
 	//printImg2File("binary_binary_template_notehead_sobel_blur.txt", binary_binary_template_notehead_sobel_blur);
 	//SDoublePlane bw_binary_binary_template_notehead_sobel_blur = convert_binary_to_BW(binary_binary_template_notehead_sobel_blur);
 	//write_detection_image("bw_binary_binary_template_notehead_sobel_blur.png", symbols, bw_binary_binary_template_notehead_sobel_blur);
-	
+
 	//Sobel on template_quarterrest
 	SDoublePlane binary_template_quarterrest = convert_binary(template_quarterrest);
 	SDoublePlane binary_template_quarterrest_sobel = sobel_filter(binary_template_quarterrest);
 	SDoublePlane bw_binary_template_quarterrest_sobel = convert_binary_to_BW(binary_template_quarterrest_sobel);
 	SDoublePlane binary_template_quarterrest_sobel_blur = convolve_general(binary_template_quarterrest_sobel, mean_filter);
 	SDoublePlane binary_binary_template_quarterrest_sobel_blur = convert_blur_to_binary(binary_template_quarterrest_sobel_blur);		//(edge map)
-	
+
 	//Sobel on template_eighthrest
 	SDoublePlane binary_template_eighthrest = convert_binary(template_eighthrest);
 	SDoublePlane binary_template_eighthrest_sobel = sobel_filter(binary_template_eighthrest);
@@ -1164,12 +1234,14 @@ int main(int argc, char *argv[]) {
 	hm_F_template_quarterrest.hamming_matrix = F_template_quarterrest;
 	hm_F_template_eighthrest.hamming_matrix = F_template_eighthrest;
 	hm_F_template_notehead.max_hamming_distance = hm_F_template_quarterrest.max_hamming_distance = hm_F_template_eighthrest.max_hamming_distance = 255;
-	vector <DetectedSymbol> symbols_q5;
-	find_symbols(hm_F_template_notehead, input_image, binary_binary_template_notehead_sobel_blur, symbols_q5, NOTEHEAD);
-	find_symbols(hm_F_template_quarterrest, input_image, binary_binary_template_quarterrest_sobel_blur, symbols_q5, QUARTERREST);
-	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols_q5, EIGHTHREST);
+	//vector <DetectedSymbol> symbols1;
+	find_symbols(hm_F_template_notehead, input_image, binary_binary_template_notehead_sobel_blur, symbols1, NOTEHEAD);
+	find_symbols(hm_F_template_quarterrest, input_image, binary_binary_template_quarterrest_sobel_blur, symbols1, QUARTERREST);
+	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols1, EIGHTHREST);
 	
-	write_detection_image("detected5.png", symbols_q5, input_image);
+	write_detection_image("detected5.png", symbols1, input_image);
+
+/*	
 
 	
 	/*
@@ -1228,8 +1300,9 @@ int main(int argc, char *argv[]) {
 	//******************** Q7 - Begins ***************************
 	
 	//******************** Q7 - Ends ***************************	
-	
+
 
 	
 	
 }
+
