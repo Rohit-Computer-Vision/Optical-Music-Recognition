@@ -1,4 +1,3 @@
-
 #include <SImage.h>
 #include <SImageIO.h>
 #include <cmath>
@@ -13,28 +12,8 @@ using namespace std;
 
 #define DEG2RAD(d) (d * M_PI / 180.0)
 
-// The simple image class is called SDoublePlane, with each pixel represented as
-// a double (floating point) type. This means that an SDoublePlane can represent
-// values outside the range 0-255, and thus can represent squared gradient magnitudes,
-// harris corner scores, etc.
-//
-// The SImageIO class supports reading and writing PNG files. It will read in
-// a color PNG file, convert it to grayscale, and then return it to you in
-// an SDoublePlane. The values in this SDoublePlane will be in the range [0,255].
-//
-// To write out an image, call write_png_file(). It takes three separate planes,
-// one for each primary color (red, green, blue). To write a grayscale image,
-// just pass the same SDoublePlane for all 3 planes. In order to get sensible
-// results, the values in the SDoublePlane should be in the range [0,255].
-//
-
-// Below is a helper functions that overlays rectangles
-// on an image plane for visualization purpose.
-
-// Draws a rectangle on an image plane, using the specified gray level value and line width.
-//
 void overlay_rectangle(SDoublePlane &input, int _top, int _left, int _bottom,
-		int _right, double graylevel, int width) {
+	int _right, double graylevel, int width) {
 	for (int w = -width / 2; w <= width / 2; w++) {
 		int top = _top + w, left = _left + w, right = _right + w, bottom =
 				_bottom + w;
@@ -108,8 +87,7 @@ public:
 };
 
 // Function that outputs the ascii detection output file
-void write_detection_txt(const string &filename,
-		const vector<struct DetectedSymbol> &symbols) {
+void write_detection_txt(const string &filename, const vector<struct DetectedSymbol> &symbols) {
 	ofstream ofs(filename.c_str());
 
 	for (int i = 0; i < symbols.size(); i++) {
@@ -125,7 +103,6 @@ void write_detection_txt(const string &filename,
 		ofs << " " << s.confidence << endl;
 	}
 }
-
 
 void write_detection_image(const string &filename, const SDoublePlane &input) {
 	SDoublePlane output_planes[3];
@@ -165,9 +142,7 @@ void write_detection_image(const string &filename,
 			output_planes[1], output_planes[2]);
 }
 
-
-
-int reflect(int pixel, int bound) { //need to consider filter of length more than 3
+int reflect(int pixel, int bound) {
 	if (pixel < 0)
 		pixel = -pixel - 1;
 	else if (pixel > bound - 1)
@@ -346,8 +321,6 @@ SDoublePlane find_edges(const SDoublePlane &input, double thresh = 0) {
 	return output;
 }
 
-// Detect symbols in the given input_image
-
 // Print an image to a file
 void printImg2File(string filename, SDoublePlane img) {
 	ofstream outFile;
@@ -364,18 +337,17 @@ void printImg2File(string filename, SDoublePlane img) {
 
 //Converts a grey scale image to binary image
 SDoublePlane convert_binary(SDoublePlane &input){
-
 	int rows = input.rows();
 	int cols = input.cols();
 	SDoublePlane output(rows,cols);
 
-	double threshold = 100.0;
+	double threshold = 100;
 	for(int i= 0;i<rows;++i)
 		for(int j=0;j<cols;++j){
 			if(input[i][j] >= threshold)
 				output[i][j] = 1;
 			else
-				output[i][j] =0;
+				output[i][j] = 0;
 		}
 	return output;
 }
@@ -413,6 +385,22 @@ SDoublePlane convert_binary_to_BW(SDoublePlane &input){
 	return output;
 }
 
+SDoublePlane display_binary(SDoublePlane &input){
+
+	int rows = input.rows();
+	int cols = input.cols();
+	SDoublePlane output(rows,cols);
+
+	for(int i= 0; i<rows; ++i)
+		for(int j=0; j<cols; ++j){
+			if(input[i][j] < 0.3)
+				output[i][j] = 0;
+			else
+				output[i][j] = 255;
+		}
+	return output;
+}
+
 SDoublePlane convert_blur_to_binary(SDoublePlane &input){
 
 	int rows = input.rows();
@@ -426,6 +414,43 @@ SDoublePlane convert_blur_to_binary(SDoublePlane &input){
 			else
 				output[i][j] = 1;
 		}
+	return output;
+}
+
+SDoublePlane central_edge(SDoublePlane &input){
+	//input is a pure b&w image/template
+	int rows = input.rows();
+	int cols = input.cols();
+	int count = 0, start = 0, mid = 0;
+	SDoublePlane output(rows,cols);
+
+	for(int i=0; i<rows; i++) {
+		count = 0;
+		for(int j=0; j<cols; j++){
+			if(input[i][j] == 1) {
+				count++;
+				if(count == 1) {
+					start = j;
+					//printf("\nstart: %d", start);
+				}
+				//printf("\nif: (%d,%d,%d), ", i, j, count);
+			}
+			else if(input[i][j] == 0 or j == cols-1) {
+				//printf("\nelse: (%d,%d,%d), ", i, j, count);
+				if(count > 0) {
+					mid = start + count/2;
+					while(start < j) {
+						if(start == mid) {
+							output[i][start] = 255;
+							//printf("\nOutput[%d][%d]=255", i, start);
+						}
+						start++;
+					}
+				}
+				count = 0;
+			}
+		}
+	}
 	return output;
 }
 
@@ -814,8 +839,7 @@ SDoublePlane runHoughTransform(SDoublePlane &img){
 	return H;
 }
 
-vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &img, int threshold){
-	
+vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &img, int threshold){	
 	int img_w = img.cols();
 	int img_h = img.rows();
     int rows = accumulator.rows();
@@ -875,9 +899,7 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
     return houghLines;
 }
 
-
-void write_staves_image(const string &filename, const SDoublePlane &img, vector<Line> linesVector){
-	
+void write_staves_image(const string &filename, const SDoublePlane &img, vector<Line> linesVector){	
 	SDoublePlane output_planes[3];
 	
 	for (int i = 0; i < 3; i++)
@@ -906,10 +928,6 @@ void write_staves_image(const string &filename, const SDoublePlane &img, vector<
 }
 
 
-//
-// This main file just outputs a few test images. You'll want to change it to do
-//  something more interesting!
-//
 
 int main(int argc, char *argv[]) {
 	if (!(argc == 2)) {
@@ -938,14 +956,13 @@ int main(int argc, char *argv[]) {
 	SDoublePlane col_filter(filter_size, 1);
 	col_filter = make_col_filter(filter_size);
 	
-	//******************** Q2 - Begins ***************************
+	//******************** Q2 - Begins -> Convolution ***************************
 	
 	SDoublePlane mean_filter(filter_size, filter_size);
 	mean_filter = make_mean_filter(filter_size);  
-	// Q2 and Q3. Convolution
 	//NEED to take care of boundary conditions in separable filter
 	SDoublePlane convoluted_image_2 = convolve_general(input_image, mean_filter);
-	write_detection_image("q2_output.png", convoluted_image_2);
+	//write_detection_image("q2_output.png", convoluted_image_2);
 		
 	//******************** Q2 - Ends ***************************
 
@@ -953,27 +970,14 @@ int main(int argc, char *argv[]) {
 	
 	//******************** Q3 - Begins ***************************
 	
-	// SDoublePlane row_filter(1, 3);
-	// SDoublePlane col_filter(3, 1);
-
-	// 1 row and three columns
-	// for (int i = 0; i < 1; i++)
-		// for (int j = 0; j < 3; j++)
-			// row_filter[i][j] = 1 / 3.0;
-
-	// for (int i = 0; i < 3; i++)
-		// for (int j = 0; j < 1; j++)
-			// col_filter[i][j] = 1 / 3.0;
-		
 	SDoublePlane convoluted_image_3 = convolve_separable(input_image, row_filter, col_filter);
-	write_detection_image("q3_output.png", convoluted_image_3);
+	//write_detection_image("q3_output.png", convoluted_image_3);
 
 	//******************** Q3 - Ends ***************************
 
 	
 	//******************** Q4 - Begins ***************************
 	  
-
 	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
 	SDoublePlane convoluted_notehead_template = convolve_separable(template_notehead, row_filter, col_filter);
 	SDoublePlane convoluted_quarterrest_template = convolve_separable(template_quarterrest, row_filter, col_filter);
@@ -986,6 +990,7 @@ int main(int argc, char *argv[]) {
 	SDoublePlane binary_convoluted_eighthrest_template = convert_binary(convoluted_eighthrest_template);
 	
 // Q4. Detecting symbols using Hamming Distances 
+
 	HammingDistances hm_notehead = find_hamming_distance(binary_convoluted_image, binary_convoluted_notehead_template);
 	HammingDistances hm_quarterrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_quarterrest_template);
 	HammingDistances hm_eighthrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_eighthrest_template);
@@ -1008,26 +1013,38 @@ int main(int argc, char *argv[]) {
 
 
 
-
-
-
-
-	//******************** Q5 - Begins ***************************
+	//******************** Q5 - Begins -> Sobel ***************************
 	
-	//******************** Q5 Sobel + separable kernel ***************************
 	int rows = input_image.rows(), cols = input_image.cols();
+	vector <DetectedSymbol> symbols1;
+
+	SDoublePlane image_blur = convolve_general(input_image, mean_filter);					//blur
+	SDoublePlane image_blur_sobel = sobel_filter(image_blur);												//apply sobel filter
+	SDoublePlane binary_image_blur_sobel = convert_binary(image_blur_sobel);												//egde map
+	SDoublePlane image_edge_map = binary_image_blur_sobel;												//egde map
+	
+	SDoublePlane template_notehead_blur = convolve_general(template_notehead, mean_filter);					//blur
+	SDoublePlane template_notehead_blur_sobel = sobel_filter(template_notehead_blur);												//apply sobel filter
+	SDoublePlane binary_template_notehead_blur_sobel = convert_binary(template_notehead_blur_sobel);												//egde map
+	//write_detection_image("5.binary_template_notehead_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_notehead_blur_sobel));
+
+	SDoublePlane template_quarterrest_blur = convolve_general(template_quarterrest, mean_filter);					//blur
+	SDoublePlane template_quarterrest_blur_sobel = sobel_filter(template_quarterrest_blur);						//apply sobel filter
+	SDoublePlane binary_template_quarterrest_blur_sobel = convert_binary(template_quarterrest_blur_sobel);
+	//write_detection_image("6.binary_template_quarterrest_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_quarterrest_blur_sobel));
+
+	SDoublePlane template_eighthrest_blur = convolve_general(template_eighthrest, mean_filter);					//blur
+	SDoublePlane template_eighthrest_blur_sobel = sobel_filter(template_eighthrest_blur);						//apply sobel filter
+	SDoublePlane binary_template_eighthrest_blur_sobel = convert_binary(template_eighthrest_blur_sobel);
+	//write_detection_image("7.binary_template_eighthrest_blur_sobel.png", symbols1, convert_binary_to_BW(binary_template_eighthrest_blur_sobel));
 	
 	//Sobel on Image
 	SDoublePlane binary_image = convert_binary(input_image);													//convert image to binary
 	SDoublePlane binary_image_sobel = sobel_filter(binary_image);												//apply sobel filter
-	//SDoublePlane bw_binary_image_sobel = convert_binary_to_BW(binary_image_sobel);							//convert to b&w only for viewing
-	//write_detection_image("bw_binary_image_sobel.png", symbols, bw_binary_image_sobel);
 	SDoublePlane binary_image_sobel_blur = convolve_general(binary_image_sobel, mean_filter);					//blur
 	SDoublePlane binary_binary_image_sobel_blur = convert_blur_to_binary(binary_image_sobel_blur);				//(edge map) coz blur made it not binary
-	//SDoublePlane bw_binary_binary_image_sobel_blur = convert_binary_to_BW(binary_binary_image_sobel_blur);
-	//write_detection_image("bw_binary_binary_image_sobel_blur.png", symbols, bw_binary_binary_image_sobel_blur);	//just to visualize
-	
-	//Sobel on template_notehead
+
+	//Sobel on template_notehead - bkp
 	SDoublePlane binary_template_notehead = convert_binary(template_notehead);
 	SDoublePlane binary_template_notehead_sobel = sobel_filter(binary_template_notehead);
 	SDoublePlane bw_binary_template_notehead_sobel = convert_binary_to_BW(binary_template_notehead_sobel);
@@ -1038,6 +1055,10 @@ int main(int argc, char *argv[]) {
 	//printImg2File("binary_binary_template_notehead_sobel_blur.txt", binary_binary_template_notehead_sobel_blur);
 	//SDoublePlane bw_binary_binary_template_notehead_sobel_blur = convert_binary_to_BW(binary_binary_template_notehead_sobel_blur);
 	//write_detection_image("bw_binary_binary_template_notehead_sobel_blur.png", symbols, bw_binary_binary_template_notehead_sobel_blur);
+
+
+
+
 	
 	//Sobel on template_quarterrest
 	SDoublePlane binary_template_quarterrest = convert_binary(template_quarterrest);
@@ -1045,7 +1066,8 @@ int main(int argc, char *argv[]) {
 	SDoublePlane bw_binary_template_quarterrest_sobel = convert_binary_to_BW(binary_template_quarterrest_sobel);
 	SDoublePlane binary_template_quarterrest_sobel_blur = convolve_general(binary_template_quarterrest_sobel, mean_filter);
 	SDoublePlane binary_binary_template_quarterrest_sobel_blur = convert_blur_to_binary(binary_template_quarterrest_sobel_blur);		//(edge map)
-	
+	//write_detection_image("99.binary_binary_template_quarterrest_sobel_blur.png", symbols1, convert_binary_to_BW(binary_binary_template_quarterrest_sobel_blur));
+
 	//Sobel on template_eighthrest
 	SDoublePlane binary_template_eighthrest = convert_binary(template_eighthrest);
 	SDoublePlane binary_template_eighthrest_sobel = sobel_filter(binary_template_eighthrest);
@@ -1073,12 +1095,14 @@ int main(int argc, char *argv[]) {
 	hm_F_template_quarterrest.hamming_matrix = F_template_quarterrest;
 	hm_F_template_eighthrest.hamming_matrix = F_template_eighthrest;
 	hm_F_template_notehead.max_hamming_distance = hm_F_template_quarterrest.max_hamming_distance = hm_F_template_eighthrest.max_hamming_distance = 255;
-	vector <DetectedSymbol> symbols_q5;
-	find_symbols(hm_F_template_notehead, input_image, binary_binary_template_notehead_sobel_blur, symbols_q5, NOTEHEAD);
-	find_symbols(hm_F_template_quarterrest, input_image, binary_binary_template_quarterrest_sobel_blur, symbols_q5, QUARTERREST);
-	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols_q5, EIGHTHREST);
+	//vector <DetectedSymbol> symbols1;
+	find_symbols(hm_F_template_notehead, input_image, binary_binary_template_notehead_sobel_blur, symbols1, NOTEHEAD);
+	find_symbols(hm_F_template_quarterrest, input_image, binary_binary_template_quarterrest_sobel_blur, symbols1, QUARTERREST);
+	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols1, EIGHTHREST);
 	
-	write_detection_image("detected5.png", symbols_q5, input_image);
+	write_detection_image("detected5.png", symbols1, input_image);
+}
+/*	
 
 	
 	/*
@@ -1142,7 +1166,4 @@ int main(int argc, char *argv[]) {
 	//******************** Q7 - Begins ***************************
 	
 	//******************** Q7 - Ends ***************************	
-	
 
-	
-}
