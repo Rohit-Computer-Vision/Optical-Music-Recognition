@@ -248,7 +248,6 @@ SDoublePlane convolve_general(const SDoublePlane &input,
 		sum = 0;
 		for (int m = -1; m < 2; m++) {
 			for (int n = -1; n < 2; n++) {
-				//cout<<"Top: send ("<<0-m<<","<<r<<") and ("<<j-n<<","<<c<<")\n";
 				sum = sum
 						+ filter[m + 1][n + 1]
 								* input[reflect(0 - m, r)][reflect(j - n, c)];
@@ -258,7 +257,6 @@ SDoublePlane convolve_general(const SDoublePlane &input,
 		sum = 0;
 		for (int m = -1; m < 2; m++) {
 			for (int n = -1; n < 2; n++) {
-				//cout<<"Bottom: send ("<<0-m<<","<<r<<") and ("<<j-n<<","<<c<<")\n";
 				sum =
 						sum
 								+ filter[m + 1][n + 1]
@@ -268,7 +266,7 @@ SDoublePlane convolve_general(const SDoublePlane &input,
 			output[r - 1][j] = sum;
 		}
 	}
-	//left - input[i][0], right - input[i][input.cols()-1]
+	
 	for (int i = 0; i < r; i++) {
 		sum = 0;
 		for (int m = -1; m < 2; m++) {
@@ -614,7 +612,6 @@ SDoublePlane calculate_F(SDoublePlane D, SDoublePlane &binary_template, double t
 		for(j=0; j<input_cols - n; j++)
 			if(output[i][j] < threshold){
 				output[i][j] = 255;
-				//cout << threshold << "...."<<"("<<i<<","<<j<<")\n";;
 			}
 			else
 				output[i][j] = 0;
@@ -814,7 +811,6 @@ void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> allLinesLocVector
 		else{
 			
 			if((allLinesLocVector[i].row < symbol_end_row) && (allLinesLocVector[i].row>symbol_start_row )){
-				// cout<<"setting symbol for line "<< i+1 << " ("<< s.row<<","<<s.col<<"): "<<allLinesLocVector[i].line_marker<<"\n";
 				s.pitch = allLinesLocVector[i].line_marker;
 				continue;
 			}
@@ -887,7 +883,7 @@ void find_symbols(HammingDistances hm, SDoublePlane input, SDoublePlane img_temp
 // 
 SDoublePlane runHoughTransform(SDoublePlane &img){
 	
-	printImg2File("sobelPNG.txt",img);
+	//printImg2File("sobelPNG.txt",img);
 
 	int r = img.rows();
 	int c = img.cols();
@@ -997,7 +993,6 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 					line.x2 = ((rho - rows/2) - ((line.y2 - img_h/2) * sin(degInRadian))) / cos(degInRadian) + img_w/2;
 				}
 				
-				cout<<"(x1,y1): ("<<line.x1<<","<<line.y1<<"), (x2,y2):("<<line.x2<<","<<line.y2<<")\n";
 				
 				if (houghLines.empty()) houghLines.push_back(line);
 				else{
@@ -1006,12 +1001,6 @@ vector<Line>  getLinesFromHoughSpace(SDoublePlane &accumulator, SDoublePlane &im
 			}
         }
     }
-
-	cout <<"\n\n";	
-	cout << "threshold: " << threshold  <<"\n";
-	cout << "max vote: " << maxValue <<"\n";
-	cout << "threshold vote: " << threshold * maxValue <<"\n";
-	cout << "Total Lines: " << houghLines.size() <<"\n";
     return houghLines;
 }
 
@@ -1024,23 +1013,15 @@ double getAvgDistanceBetweenStaffLines(vector<Line> linesVector){
 	if (numberOfLines % 5 == 0){
 		for (int i=0; i<numberOfLines; i+=5){
 			allStaffHeightSum += sqrt(pow(linesVector[i+4].x1-linesVector[i].x1,2)+pow(linesVector[i+4].y1-linesVector[i].y1,2));
-			// cout << "allStaffHeightSum: "<<allStaffHeightSum<<"\n";		
 			numberOfStaff++;
 		}
 		avgDistanceBetweenStaffLines = allStaffHeightSum/(double)numberOfStaff;
 	}else{
 		avgDistanceBetweenStaffLines = 0;
-	}
+	}	
 	
-	cout << "avgDistanceBetweenStaffLines: "<<avgDistanceBetweenStaffLines<<"\n";		
-
-	cout << "avgDistanceBetweenStaffLines/4: "<<avgDistanceBetweenStaffLines/4.0<<"\n";		
-
-	// int numberOfStaves = (round(numberOfLines/5.0));
-	
-	// cout <<"\n***getAvgDistanceBetweenStaffLines***\n";	
-	// cout << "numberOfLines" <<numberOfLines<<"\n";
-	// cout << "numberOfStaves" <<numberOfStaves<<"\n";
+	if (avgDistanceBetweenStaffLines == 0)
+		avgDistanceBetweenStaffLines = 50;
 	
 	// Avg distance between every staff line
 	return avgDistanceBetweenStaffLines/4.0;
@@ -1063,7 +1044,7 @@ void write_staves_image(const string &filename, const SDoublePlane &img, vector<
 		y1 = linesVector[i].y1;
 		x2 = linesVector[i].x2;
 		y2 = linesVector[i].y2;
-		//cout<<"(x1,y1): ("<<x1<<","<<y1<<"), (x2,y2):("<<x2<<","<<y2<<")\n";
+		//cout<<"(x1,y1): ("<<x1<<","<<y1<<"), (x2,y2):("<<x2<<","<<y2<<")\n"; 
 		
 		overlay_rectangle(output_planes[2], y1, x1, y2, x2, 255, 2);
 		overlay_rectangle(output_planes[0], y1, x1, y2, x2, 0, 2);
@@ -1080,16 +1061,14 @@ void write_staves_image(const string &filename, const SDoublePlane &img, vector<
 // Resize image
 SDoublePlane resize_image(SDoublePlane &input, double newScaleRatio)
 {
+	if (newScaleRatio == 1) return input;
+	
     int rows = input.rows();
     int cols = input.cols();
  
 	int newWidth = newScaleRatio * cols;
 	int newHeight = newScaleRatio * rows ;
 	
-
-	cout << "newScaleRatio:" << newScaleRatio <<"\n";
-	cout<<"OldWidth * OldHeight :" << cols <<"x"<< rows << "\n";
-	cout<<"newWidth * newHeight :" << newWidth <<"x"<< newHeight << "\n";
     SDoublePlane output(newHeight, newWidth);
     
     set<int> mySetRows;
@@ -1103,9 +1082,6 @@ SDoublePlane resize_image(SDoublePlane &input, double newScaleRatio)
     while( mySetCols.size() < newWidth ){
         mySetCols.insert( rand()% cols+1 );
     }
-    
-    cout<<mySetRows.size()<<"  "<<mySetCols.size();
-    
     
     int ii =0;
     for(int i = 1; i <rows;i++){
@@ -1130,42 +1106,45 @@ SDoublePlane resize_image(SDoublePlane &input, double newScaleRatio)
         
     }
     
-    write_detection_image("Resized_pic.png", output);
+    //write_detection_image("Resized_pic.png", output);
     return output;
 }
 
-void detectSymbolsHammingDistance_Q4(const SDoublePlane& img,
+void detectSymbolsHammingDistance(const SDoublePlane& img,
 		const SDoublePlane& col_filter, const SDoublePlane& row_filter,  
 		const SDoublePlane& template_notehead,
 		const SDoublePlane& template_quarterrest,
 		const SDoublePlane& template_eighthrest, const string &filename){
-			
+		
+	cout<<"Convoluting...\n";		
 	SDoublePlane convoluted_image = convolve_separable(img, row_filter, col_filter);
 	SDoublePlane convoluted_notehead_template = convolve_separable(template_notehead, row_filter, col_filter);
 	SDoublePlane convoluted_quarterrest_template = convolve_separable(template_quarterrest, row_filter, col_filter);
 	SDoublePlane convoluted_eighthrest_template = convolve_separable(template_eighthrest, row_filter, col_filter);
 	
-	cout<<"convoluted_image Done\n";
+	
 	// Convert to Binary
+	cout<<"Converting to Binary...\n";		
 	SDoublePlane binary_convoluted_image = convert_binary(convoluted_image);
 	SDoublePlane binary_convoluted_notehead_template = convert_binary(convoluted_notehead_template);
 	SDoublePlane binary_convoluted_quarterrest_template = convert_binary(convoluted_quarterrest_template);
 	SDoublePlane binary_convoluted_eighthrest_template = convert_binary(convoluted_eighthrest_template);
-	cout<<"binary_convoluted_image Done\n";
 	
 	// Q4. Detecting symbols using Hamming Distances 
+	cout<<"Applying HammingDistance approach...\n";
 	HammingDistances hm_notehead = find_hamming_distance(binary_convoluted_image, binary_convoluted_notehead_template);
 	HammingDistances hm_quarterrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_quarterrest_template);
 	HammingDistances hm_eighthrest = find_hamming_distance(binary_convoluted_image, binary_convoluted_eighthrest_template);
-	cout<<"HammingDistances Done\n";
 	
+	cout<<"Detecting symbols...\n";
 	vector <DetectedSymbol> symbols;
 	find_symbols(hm_notehead, img, binary_convoluted_notehead_template, symbols, NOTEHEAD);
 	find_symbols(hm_quarterrest, img, binary_convoluted_quarterrest_template, symbols, QUARTERREST);
 	find_symbols(hm_eighthrest, img, binary_convoluted_eighthrest_template, symbols, EIGHTHREST);
-	cout<<"find_symbols Done\n";
 
-	write_detection_image(filename.c_str(), symbols, img);
+	write_detection_image((filename+".png").c_str(), symbols, img);
+	write_detection_txt((filename+".txt").c_str(), symbols);
+	cout<<"Output written: "<<filename<<"\n\n";
 
 }
 
@@ -1186,6 +1165,7 @@ int main(int argc, char *argv[]) {
 	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
 													
 	// Read the image, template NOTEHEAD, QUARTERREST AND EIGHTHREST
+	cout<<"\n\nReading image and templates...\n";
 	SDoublePlane template_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
 	SDoublePlane template_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
 	SDoublePlane template_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
@@ -1198,33 +1178,26 @@ int main(int argc, char *argv[]) {
 	
 	SDoublePlane mean_filter(filter_size, filter_size);
 	mean_filter = make_mean_filter(filter_size); 
-	
 	//************************************************************	
 	
-	/*
+
 	//******************** Q2 - Begins ***************************	
- 
 	SDoublePlane convoluted_image_2 = convolve_general(input_image, mean_filter);
 	write_detection_image("output_q2.png", convoluted_image_2);
 	//******************** Q2 - Ends ***************************
 
-	
 	
 	//******************** Q3 - Begins ***************************
 	SDoublePlane convoluted_image_3 = convolve_separable(input_image, row_filter, col_filter);
 	write_detection_image("output_q3.png", convoluted_image_3);
 	//******************** Q3 - Ends ***************************
 
-	
-	*/
+
 	//******************** Q4 - Begins ***************************
-	detectSymbolsHammingDistance_Q4(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q4.png");
+	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected4");
 	//******************** Q4 - Ends ***************************	
 	
 	
-
-
-
 	//******************** Q5 - Begins ***************************	
 	int rows = input_image.rows(), cols = input_image.cols();
 	vector <DetectedSymbol> symbols;
@@ -1305,6 +1278,7 @@ int main(int argc, char *argv[]) {
 	find_symbols(hm_F_template_eighthrest, input_image, binary_binary_template_eighthrest_sobel_blur, symbols, EIGHTHREST);
 	
 	write_detection_image("detected5.png", symbols, input_image);
+	cout<<"Output written: detected5.png\n\n";
 	//******************** Q5- Ends ***************************	
 	
 	
@@ -1313,26 +1287,17 @@ int main(int argc, char *argv[]) {
 	SDoublePlane hough_transform_accu = runHoughTransform(sobelInputPNG);
 	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelInputPNG, 0.75);
 	
-
-	write_detection_image("sobel_"+input_filename, sobelInputPNG);	
 	write_staves_image("staves_"+input_filename, sobelInputPNG,linesFromHoughSpace);
 	
 	// Find Scaling factor
 	double avgDistBetweenEveryStaffLine = getAvgDistanceBetweenStaffLines(linesFromHoughSpace);
-	
-	cout<<"template1.rows()"<<template1.rows()<<"\n";
-	cout<<"avgDistBetweenEveryStaffLine"<<avgDistBetweenEveryStaffLine<<"\n";
-	
-	if (avgDistBetweenEveryStaffLine == 0)
-		avgDistBetweenEveryStaffLine = 50;
+		
 	double newScaleRatio = template1.rows()/(avgDistBetweenEveryStaffLine - 0.5);
 	
-	
-	SDoublePlane rescaledImage = resize_image(input_image, newScaleRatio);
-	cout<<"Rescale Done\n";
-	  
-	detectSymbolsHammingDistance_Q4(rescaledImage, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "output_q7.png");		
+	cout<<"Rescaling..\n";	
+	SDoublePlane rescaledImage = resize_image(input_image, newScaleRatio);		
 
+	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected7");	
 	//******************** Q6 - Ends ***************************	
 
 	
