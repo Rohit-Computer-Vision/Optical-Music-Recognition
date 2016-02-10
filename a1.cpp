@@ -1148,64 +1148,7 @@ void detectSymbolsHammingDistance(const SDoublePlane& img,
 
 }
 
-int main(int argc, char *argv[]) {
-	if (!(argc == 2)) {
-		cerr << "usage: " << argv[0] << " input_image" << endl;
-		return 1;
-	}
-	
-//******************** Initialize ***************************	
-	string input_filename(argv[1]);
-	string TEMPLATE_NOTEHEAD = "template1.png";
-	string TEMPLATE_QUARTERREST = "template2.png";
-	string TEMPLATE_EIGHTHREST = "template3.png";
-	int filter_size = 3;
-
-	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
-	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
-													
-	// Read the image, template NOTEHEAD, QUARTERREST AND EIGHTHREST
-	cout<<"\nReading image and templates...\n";
-	SDoublePlane template_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
-	SDoublePlane template_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
-	SDoublePlane template_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
-	
-	SDoublePlane row_filter(1, filter_size);
-	row_filter = make_row_filter(filter_size);
-	
-	SDoublePlane col_filter(filter_size, 1);
-	col_filter = make_col_filter(filter_size);
-	
-	SDoublePlane mean_filter(filter_size, filter_size);
-	mean_filter = make_mean_filter(filter_size); 
-	
-//************************************************************	
-	
-
-//******************** Q2 - Begins ***************************	
-	SDoublePlane convoluted_image_2 = convolve_general(input_image, mean_filter);
-	//write_detection_image("output_q2.png", convoluted_image_2);
-//******************** Q2 - Ends ***************************
-
-	
-//******************** Q3 - Begins ***************************
-	SDoublePlane convoluted_image_3 = convolve_separable(input_image, row_filter, col_filter);
-	//write_detection_image("output_q3.png", convoluted_image_3);
-//******************** Q3 - Ends ***************************
-
-
-//******************** Q4 - Begins ***************************
-	// Writing scores4.png //
-	// The convolution step is done here to get scores4.png. However, the convolution step is performed inside detectSymbolsHammingDistance	
-	SDoublePlane convoluted_image = convolve_general(input_image, mean_filter);
-	write_detection_image("scores4.png", convoluted_image);
-	cout<<"Output written: scores4.png\n\n";
-	
-	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected4");
-//******************** Q4 - Ends ***************************	
-	
-	
-//******************** Q5 - Begins ***************************	
+void q5_score(SDoublePlane& input_image, SDoublePlane& mean_filter, SDoublePlane& template_notehead, SDoublePlane& template_quarterrest, SDoublePlane& template_eighthrest) {
 	int rows = input_image.rows(), cols = input_image.cols();
 	vector <DetectedSymbol> symbols;
 	
@@ -1262,7 +1205,6 @@ int main(int argc, char *argv[]) {
 	SDoublePlane binary_template_eighthrest_sobel_blur = convolve_general(binary_template_eighthrest_sobel, mean_filter);
 	SDoublePlane binary_binary_template_eighthrest_sobel_blur = convert_blur_to_binary(binary_template_eighthrest_sobel_blur);
 	
-	
 	//calculate D
 	SDoublePlane D(rows, cols);
 	D = calculate_D(binary_binary_image_sobel_blur);
@@ -1285,7 +1227,63 @@ int main(int argc, char *argv[]) {
 	
 	write_detection_image("detected5.png", symbols, input_image);
 	cout<<"Output written: detected5.png\n\n";
+}
+
+int main(int argc, char *argv[]) {
+	if (!(argc == 2)) {
+		cerr << "usage: " << argv[0] << " input_image" << endl;
+		return 1;
+	}
 	
+//******************** Initialize ***************************	
+	string input_filename(argv[1]);
+	string TEMPLATE_NOTEHEAD = "template1.png";
+	string TEMPLATE_QUARTERREST = "template2.png";
+	string TEMPLATE_EIGHTHREST = "template3.png";
+	int filter_size = 3;
+
+	SDoublePlane input_image = SImageIO::read_png_file(input_filename.c_str());
+	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
+													
+	// Read the image, template NOTEHEAD, QUARTERREST AND EIGHTHREST
+	cout<<"\nReading image and templates...\n";
+	SDoublePlane template_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
+	SDoublePlane template_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
+	SDoublePlane template_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
+	
+	SDoublePlane row_filter(1, filter_size);
+	row_filter = make_row_filter(filter_size);
+	
+	SDoublePlane col_filter(filter_size, 1);
+	col_filter = make_col_filter(filter_size);
+	
+	SDoublePlane mean_filter(filter_size, filter_size);
+	mean_filter = make_mean_filter(filter_size); 
+	
+//******************** Q2 - Begins ***************************	
+	SDoublePlane convoluted_image_2 = convolve_general(input_image, mean_filter);
+	//write_detection_image("output_q2.png", convoluted_image_2);
+//******************** Q2 - Ends ***************************
+
+	
+//******************** Q3 - Begins ***************************
+	SDoublePlane convoluted_image_3 = convolve_separable(input_image, row_filter, col_filter);
+	//write_detection_image("output_q3.png", convoluted_image_3);
+//******************** Q3 - Ends ***************************
+
+
+//******************** Q4 - Begins ***************************
+	// Writing scores4.png //
+	// The convolution step is done here to get scores4.png. However, the convolution step is performed inside detectSymbolsHammingDistance	
+	SDoublePlane convoluted_image = convolve_general(input_image, mean_filter);
+	write_detection_image("scores4.png", convoluted_image);
+	cout<<"Output written: scores4.png\n\n";
+	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected4");
+//******************** Q4 - Ends ***************************	
+	
+	
+//******************** Q5 - Begins ***************************	
+	q5_score(input_image, mean_filter, template_notehead, template_quarterrest, template_eighthrest);
 //******************** Q5- Ends ***************************	
 	
 	
