@@ -1144,7 +1144,7 @@ void detectSymbolsHammingDistance(const SDoublePlane& img,
 
 	write_detection_image((filename+".png").c_str(), symbols, img);
 	write_detection_txt((filename+".txt").c_str(), symbols);
-	cout<<"Output written: "<<filename<<"\n\n";
+	cout<<"Output written: "<<filename<<".png\n";
 
 }
 
@@ -1194,6 +1194,12 @@ int main(int argc, char *argv[]) {
 
 
 	//******************** Q4 - Begins ***************************
+	// Writing scores4.png //
+	// The convolution step is done here to get scores4.png. However, the convolution step is performed inside detectSymbolsHammingDistance	
+	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
+	write_detection_image("scores4.png", convoluted_image);
+	cout<<"Output written: scores4.png\n\n";
+	
 	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected4");
 	//******************** Q4 - Ends ***************************	
 	
@@ -1287,7 +1293,7 @@ int main(int argc, char *argv[]) {
 	SDoublePlane hough_transform_accu = runHoughTransform(sobelInputPNG);
 	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelInputPNG, 0.75);
 	
-	write_staves_image("staves_"+input_filename, sobelInputPNG,linesFromHoughSpace);
+	write_staves_image("staves", sobelInputPNG,linesFromHoughSpace);
 	
 	// Find Scaling factor
 	double avgDistBetweenEveryStaffLine = getAvgDistanceBetweenStaffLines(linesFromHoughSpace);
