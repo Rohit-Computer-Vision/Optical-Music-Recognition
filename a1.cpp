@@ -1143,7 +1143,7 @@ void detectSymbolsHammingDistance(const SDoublePlane& img,
 	find_symbols(hm_eighthrest, img, binary_convoluted_eighthrest_template, symbols, EIGHTHREST);
 
 	write_detection_image((filename+".png").c_str(), symbols, img);
-	write_detection_txt((filename+".txt").c_str(), symbols);
+	if(!filename.compare("detected7"))	write_detection_txt((filename+".txt").c_str(), symbols);
 	cout<<"Output written: "<<filename<<".png\n";
 
 }
@@ -1154,7 +1154,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	
-	//******************** Initialize ***************************	
+//******************** Initialize ***************************	
 	string input_filename(argv[1]);
 	string TEMPLATE_NOTEHEAD = "template1.png";
 	string TEMPLATE_QUARTERREST = "template2.png";
@@ -1165,7 +1165,7 @@ int main(int argc, char *argv[]) {
 	SDoublePlane template1 = SImageIO::read_png_file("template1.png");
 													
 	// Read the image, template NOTEHEAD, QUARTERREST AND EIGHTHREST
-	cout<<"\n\nReading image and templates...\n";
+	cout<<"\nReading image and templates...\n";
 	SDoublePlane template_notehead = SImageIO::read_png_file(TEMPLATE_NOTEHEAD.c_str());
 	SDoublePlane template_quarterrest = SImageIO::read_png_file(TEMPLATE_QUARTERREST.c_str());
 	SDoublePlane template_eighthrest = SImageIO::read_png_file(TEMPLATE_EIGHTHREST.c_str());
@@ -1178,33 +1178,34 @@ int main(int argc, char *argv[]) {
 	
 	SDoublePlane mean_filter(filter_size, filter_size);
 	mean_filter = make_mean_filter(filter_size); 
-	//************************************************************	
+	
+//************************************************************	
 	
 
-	//******************** Q2 - Begins ***************************	
+//******************** Q2 - Begins ***************************	
 	SDoublePlane convoluted_image_2 = convolve_general(input_image, mean_filter);
-	write_detection_image("output_q2.png", convoluted_image_2);
-	//******************** Q2 - Ends ***************************
+	//write_detection_image("output_q2.png", convoluted_image_2);
+//******************** Q2 - Ends ***************************
 
 	
-	//******************** Q3 - Begins ***************************
+//******************** Q3 - Begins ***************************
 	SDoublePlane convoluted_image_3 = convolve_separable(input_image, row_filter, col_filter);
-	write_detection_image("output_q3.png", convoluted_image_3);
-	//******************** Q3 - Ends ***************************
+	//write_detection_image("output_q3.png", convoluted_image_3);
+//******************** Q3 - Ends ***************************
 
 
-	//******************** Q4 - Begins ***************************
+//******************** Q4 - Begins ***************************
 	// Writing scores4.png //
 	// The convolution step is done here to get scores4.png. However, the convolution step is performed inside detectSymbolsHammingDistance	
-	SDoublePlane convoluted_image = convolve_separable(input_image, row_filter, col_filter);
+	SDoublePlane convoluted_image = convolve_general(input_image, mean_filter);
 	write_detection_image("scores4.png", convoluted_image);
 	cout<<"Output written: scores4.png\n\n";
 	
 	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected4");
-	//******************** Q4 - Ends ***************************	
+//******************** Q4 - Ends ***************************	
 	
 	
-	//******************** Q5 - Begins ***************************	
+//******************** Q5 - Begins ***************************	
 	int rows = input_image.rows(), cols = input_image.cols();
 	vector <DetectedSymbol> symbols;
 	
@@ -1216,7 +1217,6 @@ int main(int argc, char *argv[]) {
 	SDoublePlane image_basic_sobel_blur = sobel_filter(image_basic_sobel);
 	SDoublePlane image_basic_sobel_blur_alternate = alternate_edge(image_basic_sobel_blur);	//direct sobel
 	
-
 	SDoublePlane image_blur = convolve_general(input_image, mean_filter);
 	SDoublePlane image_blur_sobel = sobel_filter(image_blur);
 	SDoublePlane binary_image_blur_sobel = convert_binary(image_blur_sobel);
@@ -1235,9 +1235,9 @@ int main(int argc, char *argv[]) {
 	SDoublePlane binary_template_eighthrest_blur_sobel = convert_binary(template_eighthrest_blur_sobel);
 	
 	//Sobel on Image
-	SDoublePlane binary_image = convert_binary(input_image);													//convert image to binary
-	SDoublePlane binary_image_sobel = sobel_filter(binary_image);												//apply sobel filter
-	SDoublePlane binary_image_sobel_blur = convolve_general(binary_image_sobel, mean_filter);					//blur
+	SDoublePlane binary_image = convert_binary(input_image);
+	SDoublePlane binary_image_sobel = sobel_filter(binary_image);
+	SDoublePlane binary_image_sobel_blur = convolve_general(binary_image_sobel, mean_filter);
 	SDoublePlane binary_binary_image_sobel_blur = convert_blur_to_binary(binary_image_sobel_blur);
 	SDoublePlane bw_binary_binary_image_sobel_blur = convert_binary_to_BW(binary_binary_image_sobel_blur);
 	
@@ -1246,21 +1246,21 @@ int main(int argc, char *argv[]) {
 	SDoublePlane binary_template_notehead_sobel = sobel_filter(binary_template_notehead);
 	SDoublePlane bw_binary_template_notehead_sobel = convert_binary_to_BW(binary_template_notehead_sobel);
 	SDoublePlane binary_template_notehead_sobel_blur = convolve_general(binary_template_notehead_sobel, mean_filter);
-	SDoublePlane binary_binary_template_notehead_sobel_blur = convert_blur_to_binary(binary_template_notehead_sobel_blur);		//(edge map)
+	SDoublePlane binary_binary_template_notehead_sobel_blur = convert_blur_to_binary(binary_template_notehead_sobel_blur);
 	
 	//Sobel on template_quarterrest
 	SDoublePlane binary_template_quarterrest = convert_binary(template_quarterrest);
 	SDoublePlane binary_template_quarterrest_sobel = sobel_filter(binary_template_quarterrest);
 	SDoublePlane bw_binary_template_quarterrest_sobel = convert_binary_to_BW(binary_template_quarterrest_sobel);
 	SDoublePlane binary_template_quarterrest_sobel_blur = convolve_general(binary_template_quarterrest_sobel, mean_filter);
-	SDoublePlane binary_binary_template_quarterrest_sobel_blur = convert_blur_to_binary(binary_template_quarterrest_sobel_blur);		//(edge map)
+	SDoublePlane binary_binary_template_quarterrest_sobel_blur = convert_blur_to_binary(binary_template_quarterrest_sobel_blur);
 
 	//Sobel on template_eighthrest
 	SDoublePlane binary_template_eighthrest = convert_binary(template_eighthrest);
 	SDoublePlane binary_template_eighthrest_sobel = sobel_filter(binary_template_eighthrest);
 	SDoublePlane bw_binary_template_eighthrest_sobel = convert_binary_to_BW(binary_template_eighthrest_sobel);
 	SDoublePlane binary_template_eighthrest_sobel_blur = convolve_general(binary_template_eighthrest_sobel, mean_filter);
-	SDoublePlane binary_binary_template_eighthrest_sobel_blur = convert_blur_to_binary(binary_template_eighthrest_sobel_blur);		//(edge map)
+	SDoublePlane binary_binary_template_eighthrest_sobel_blur = convert_blur_to_binary(binary_template_eighthrest_sobel_blur);
 	
 	
 	//calculate D
@@ -1285,33 +1285,26 @@ int main(int argc, char *argv[]) {
 	
 	write_detection_image("detected5.png", symbols, input_image);
 	cout<<"Output written: detected5.png\n\n";
-	//******************** Q5- Ends ***************************	
+	
+//******************** Q5- Ends ***************************	
 	
 	
-	//******************** Q6 - Begins ***************************	
+//******************** Q6 and Q7 - Begin *****************
 	SDoublePlane sobelInputPNG = sobel_filter(input_image);	
 	SDoublePlane hough_transform_accu = runHoughTransform(sobelInputPNG);
 	vector<Line> linesFromHoughSpace = getLinesFromHoughSpace(hough_transform_accu, sobelInputPNG, 0.75);
 	
-	write_staves_image("staves", sobelInputPNG,linesFromHoughSpace);
+	write_staves_image("staves.png", sobelInputPNG,linesFromHoughSpace);
 	
 	// Find Scaling factor
 	double avgDistBetweenEveryStaffLine = getAvgDistanceBetweenStaffLines(linesFromHoughSpace);
-		
 	double newScaleRatio = template1.rows()/(avgDistBetweenEveryStaffLine - 0.5);
 	
 	cout<<"Rescaling..\n";	
 	SDoublePlane rescaledImage = resize_image(input_image, newScaleRatio);		
 
 	detectSymbolsHammingDistance(input_image, col_filter, row_filter, template_notehead, template_quarterrest, template_eighthrest, "detected7");	
-	//******************** Q6 - Ends ***************************	
-
-	
-	//******************** Q7 - Begins ***************************
-	
-	//******************** Q7 - Ends ***************************	
-
-	
+	//******************** Q6 and Q7 - End ****************
 	
 }
 
