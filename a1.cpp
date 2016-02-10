@@ -747,7 +747,7 @@ void set_symbol_marker(DetectedSymbol &s, vector<LineLocation> allLinesLocVector
 	for(int i=0; i<4; i++){
 		tmpSum = allLinesLocVector[i+1].row - allLinesLocVector[i].row;
 	}		
-	avg_dist_staff_lines = tmpSum/4 + 5 ;
+	avg_dist_staff_lines = tmpSum/4 + 6 ;
 	
 	// Marking the pitch
 	for(int i=0; i<allLinesLocVector.size(); i++){
